@@ -17,6 +17,8 @@ import {
   useMemo,
 } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
+import { WebGLRenderer } from "three";
+import { setScale } from "./set-scale";
 
 const VideoTimelineContext = createContext<{
   player: VideoPlayer;
@@ -38,18 +40,13 @@ export const VideoTimeline = ({
   fps: number;
 }) => {
   const gl = useThree((state) => state.gl);
-  const canvasEl = useThree((state) => state.gl.domElement);
   const timeline = useMemo(
     () => ({
       player: new VideoPlayer({ fps }),
-      recorder: new VideoRecorder(canvasEl, { fps }),
+      recorder: new VideoRecorder(gl, { fps }),
     }),
-    [canvasEl, fps]
+    [gl, fps]
   );
-
-  useEffect(() => {
-    gl.setPixelRatio(2);
-  }, [gl]);
 
   useFrame(({ gl, scene, camera }) => {
     if (
@@ -129,21 +126,19 @@ interface VideoRecording {
 }
 
 export class VideoRecorder {
-  canvasEl: HTMLCanvasElement;
+  gl: WebGLRenderer;
   fps: number;
   isCapturing = false;
   recording: VideoRecording | null = null;
 
-  constructor(
-    canvasEl: HTMLCanvasElement,
-    { fps = 60 }: { fps?: number } = {}
-  ) {
-    this.canvasEl = canvasEl;
+  constructor(gl: WebGLRenderer, { fps = 60 }: { fps?: number } = {}) {
+    this.gl = gl;
     this.fps = fps;
   }
 
   record({ duration }: { duration: Seconds }) {
     return new Promise<Blob>(async (resolver, rejecter) => {
+      setScale(this.gl, 2);
       const output = new Output({
         format: new Mp4OutputFormat(),
         target: new BufferTarget(),
@@ -157,7 +152,7 @@ export class VideoRecorder {
       //     height: this.canvasEl.height,
       //   }
       // );
-      const canvasSource = new CanvasSource(this.canvasEl, {
+      const canvasSource = new CanvasSource(this.gl.domElement, {
         codec: codecs.find((c) => c.includes("avc")) || "vp9",
         bitrate: QUALITY_MEDIUM,
       });
@@ -201,16 +196,22 @@ export class VideoRecorder {
     this.recording.frameCount += 1;
 
     if (this.recording.frameCount / this.fps >= this.recording.duration) {
-      this.recording.isDone = true;
-      this.recording.canvasSource.close();
-      await this.recording.output.finalize();
-      const blob = new Blob([this.recording.output.target.buffer!], {
-        type: this.recording.output.format.mimeType,
-      });
-      this.recording.resolver(blob);
-      this.recording = null;
+      await this.stop();
     }
     this.isCapturing = false;
+  }
+
+  private async stop() {
+    if (!this.recording) return;
+    this.recording.isDone = true;
+    this.recording.canvasSource.close();
+    await this.recording.output.finalize();
+    const buffer = (this.recording.output.target as BufferTarget).buffer;
+    const blob = new Blob([buffer!], {
+      type: this.recording.output.format.mimeType,
+    });
+    this.recording.resolver(blob);
+    this.recording = null;
   }
 
   cancel() {
