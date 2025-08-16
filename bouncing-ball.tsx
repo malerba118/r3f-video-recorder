@@ -22,7 +22,7 @@ export default function Scene() {
         camera={{ position: [0, 0, 8] }}
         gl={{ preserveDrawingBuffer: true }}
       >
-        <VideoTimeline fps={60}>
+        <VideoTimeline fps={30}>
           <ambientLight intensity={0.4} />
           <directionalLight position={[10, 10, 5]} intensity={1} />
           <BouncingBall />
@@ -79,7 +79,7 @@ function BouncingBall() {
         timeline.recorder
           .record({ duration: 5 })
           .then((blob) => download(blob, "myfile"))
-          .catch(console.error)
+          .catch((err) => console.log("ERRRRRRRRORR", err?.message))
       }
     >
       <sphereGeometry args={[0.2, 32, 32]} />

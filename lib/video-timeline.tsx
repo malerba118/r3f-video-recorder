@@ -8,6 +8,8 @@ import {
   QUALITY_MEDIUM,
   getFirstEncodableVideoCodec,
   getEncodableVideoCodecs,
+  OutputFormat,
+  VideoCodec,
 } from "mediabunny";
 import {
   createContext,
@@ -74,10 +76,12 @@ export const VideoTimeline = ({
   useFrame(({ gl, scene, camera }) => {
     if (
       timeline.recorder.recording &&
+      timeline.recorder.recording.status ===
+        VideoRecordingStatus.ReadyForFrames &&
       timeline.recorder.recording.frameCount <= timeline.player.frame &&
-      !timeline.recorder.isCapturing
+      !timeline.recorder.recording.isCapturingFrame
     ) {
-      timeline.recorder.captureFrame().then(() => {
+      timeline.recorder.recording.captureFrame().then(() => {
         timeline.player.setFrame(timeline.player.frame + 1);
       });
     }
@@ -138,20 +142,9 @@ export class VideoPlayer {
   };
 }
 
-interface VideoRecording {
-  duration: Seconds;
-  frameCount: number;
-  canvasSource: CanvasSource;
-  output: Output;
-  resolver: (data: Blob) => void;
-  rejecter: () => void;
-  isDone: boolean;
-}
-
 export class VideoRecorder {
   gl: WebGLRenderer;
   fps: number;
-  isCapturing = false;
   recording: VideoRecording | null = null;
 
   constructor(gl: WebGLRenderer, { fps = 60 }: { fps?: number } = {}) {
@@ -159,84 +152,125 @@ export class VideoRecorder {
     this.fps = fps;
   }
 
-  record({ duration }: { duration: Seconds }) {
+  record({
+    duration,
+    format = new Mp4OutputFormat(),
+    codec = "avc",
+  }: {
+    duration: Seconds;
+    format?: OutputFormat;
+    codec?: VideoCodec;
+  }) {
     return new Promise<Blob>(async (resolver, rejecter) => {
-      const output = new Output({
-        format: new Mp4OutputFormat(),
-        target: new BufferTarget(),
-      });
-      const codecs = await getEncodableVideoCodecs();
-      console.log(codecs);
-      // const videoCodec = await getFirstEncodableVideoCodec(
-      //   output.format.getSupportedVideoCodecs(),
-      //   {
-      //     width: this.canvasEl.width,
-      //     height: this.canvasEl.height,
-      //   }
-      // );
-      const canvasSource = new CanvasSource(this.gl.domElement, {
-        codec: codecs.find((c) => c.includes("avc")) || "vp9",
-        bitrate: QUALITY_MEDIUM,
-      });
-
-      // const videoCodec = await getFirstEncodableVideoCodec(
-      //   output.format.getSupportedVideoCodecs(),
-      //   {
-      //     width: this.canvasEl.width,
-      //     height: this.canvasEl.height,
-      //   }
-      // );
-
-      // const canvasSource = new CanvasSource(this.canvasEl, {
-      //   codec: videoCodec || "av1",
-      //   bitrate: QUALITY_MEDIUM,
-      // });
-
-      output.addVideoTrack(canvasSource, { frameRate: this.fps });
-      await output.start();
-
-      this.recording = {
+      this.recording = new VideoRecording({
+        canvas: this.gl.domElement,
+        fps: this.fps,
         duration,
-        frameCount: 0,
-        canvasSource,
-        output,
-        resolver,
-        rejecter,
-        isDone: false,
-      };
+        format,
+        codec,
+        onDone: resolver,
+        onError: rejecter,
+      });
     });
+  }
+}
+
+enum VideoRecordingStatus {
+  Initializing = "initializing",
+  ReadyForFrames = "ready-for-frames",
+  Finalizing = "finalizing",
+  Canceling = "canceling",
+}
+
+type VideoRecordingConstructorParams = {
+  canvas: HTMLCanvasElement;
+  fps: number;
+  duration: Seconds;
+  format: OutputFormat;
+  codec: VideoCodec;
+  onDone: (data: Blob) => void;
+  onError: (err: unknown) => void;
+};
+
+class VideoRecording {
+  canvas: HTMLCanvasElement;
+  fps: number;
+  duration: Seconds;
+  format: OutputFormat;
+  codec: VideoCodec;
+  output: Output;
+  canvasSource: CanvasSource;
+  onDone: (data: Blob) => void;
+  onError: (err: unknown) => void;
+  frameCount: number = 0;
+  status: VideoRecordingStatus = VideoRecordingStatus.Initializing;
+  isCapturingFrame: boolean = false;
+
+  constructor(params: VideoRecordingConstructorParams) {
+    this.canvas = params.canvas;
+    this.fps = params.fps;
+    this.duration = params.duration;
+    this.format = params.format;
+    this.codec = params.codec;
+    this.onDone = params.onDone;
+    this.onError = params.onError;
+
+    this.output = new Output({
+      format: params.format,
+      target: new BufferTarget(),
+    });
+    this.canvasSource = new CanvasSource(this.canvas, {
+      codec: params.codec,
+      bitrate: QUALITY_MEDIUM,
+    });
+    this.output.addVideoTrack(this.canvasSource, { frameRate: this.fps });
+    this.output
+      .start()
+      .then(() => {
+        this.status = VideoRecordingStatus.ReadyForFrames;
+      })
+      .catch((e) => {
+        this.cancel(e || new Error("Unable to initialize recording"));
+      });
   }
 
   async captureFrame() {
-    if (!this.recording) return;
-
-    this.isCapturing = true;
-    await this.recording.canvasSource.add(
-      this.recording.frameCount / this.fps,
-      1 / this.fps
-    );
-    this.recording.frameCount += 1;
-
-    if (this.recording.frameCount / this.fps >= this.recording.duration) {
-      await this.stop();
+    try {
+      this.isCapturingFrame = true;
+      await this.canvasSource.add(this.frameCount / this.fps, 1 / this.fps);
+      this.frameCount += 1;
+      if (this.frameCount / this.fps >= this.duration) {
+        await this.stop();
+      }
+      this.isCapturingFrame = false;
+    } catch (err) {
+      this.cancel(err);
     }
-    this.isCapturing = false;
   }
 
-  private async stop() {
-    if (!this.recording) return;
-    this.recording.isDone = true;
-    this.recording.canvasSource.close();
-    await this.recording.output.finalize();
-    const buffer = (this.recording.output.target as BufferTarget).buffer;
-    const blob = new Blob([buffer!], {
-      type: this.recording.output.format.mimeType,
-    });
-    this.recording.resolver(blob);
-    this.recording = null;
-  }
+  private stop = async () => {
+    try {
+      this.status = VideoRecordingStatus.Finalizing;
+      this.canvasSource.close();
+      await this.output.finalize();
+      const buffer = (this.output.target as BufferTarget).buffer;
+      const blob = new Blob([buffer!], {
+        type: this.output.format.mimeType,
+      });
+      this.onDone(blob);
+    } catch (err) {
+      this.cancel(err);
+    }
+  };
 
-  cancel() {
-    this.recording?.rejecter?.();
-  }
+  private cancel = async (err: unknown = new Error("Recording canceled")) => {
+    try {
+      this.status = VideoRecordingStatus.Canceling;
+      this.canvasSource.close();
+      await this.output.cancel();
+      this.onError(err);
+    } catch (err) {
+      this.onError(err);
+    }
+  };
 }
