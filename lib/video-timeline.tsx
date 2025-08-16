@@ -14,11 +14,15 @@ import {
   type ReactNode,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
 } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { WebGLRenderer } from "three";
-import { setScale } from "./set-scale";
+
+function even(n: number) {
+  return n & 1 ? n + 1 : n; // next even
+}
 
 const VideoTimelineContext = createContext<{
   player: VideoPlayer;
@@ -39,7 +43,10 @@ export const VideoTimeline = ({
   children: ReactNode;
   fps: number;
 }) => {
-  const gl = useThree((state) => state.gl);
+  const { gl, size } = useThree((state) => ({
+    gl: state.gl,
+    size: state.size,
+  }));
   const timeline = useMemo(
     () => ({
       player: new VideoPlayer({ fps }),
@@ -47,6 +54,22 @@ export const VideoTimeline = ({
     }),
     [gl, fps]
   );
+
+  // h264 encoding requires that resolution width & height are even numbers.
+  // Here we monkey patch the WebGLRenderer setSize function to ensure renderer
+  // dimensions will always be even numbers.
+  useLayoutEffect(() => {
+    // @ts-ignore
+    gl.originalSetSize = gl.setSize;
+    gl.setSize = function (width, height, updateStyle = true) {
+      // @ts-ignore
+      gl.originalSetSize(even(width), even(height), updateStyle);
+    };
+  }, [gl]);
+
+  useLayoutEffect(() => {
+    gl.setSize(size.width, size.height, false);
+  }, [gl, size.width, size.height]);
 
   useFrame(({ gl, scene, camera }) => {
     if (
@@ -138,7 +161,6 @@ export class VideoRecorder {
 
   record({ duration }: { duration: Seconds }) {
     return new Promise<Blob>(async (resolver, rejecter) => {
-      setScale(this.gl, 2);
       const output = new Output({
         format: new Mp4OutputFormat(),
         target: new BufferTarget(),
