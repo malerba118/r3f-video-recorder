@@ -4,7 +4,11 @@ import { useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Html, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
-import { useTimeline, VideoTimeline } from "./lib/video-timeline";
+import {
+  useVideoCanvas,
+  VideoCanvas,
+  VideoCanvasManager,
+} from "./lib/video-timeline";
 
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -16,26 +20,33 @@ function download(blob: Blob, filename: string) {
 }
 
 export default function Scene() {
+  const videoCanvasRef = useRef<VideoCanvasManager>(null);
   return (
-    <div className="w-full h-screen bg-gray-900">
-      <Canvas
-        camera={{ position: [0, 0, 8] }}
-        gl={{ preserveDrawingBuffer: true }}
-      >
-        <VideoTimeline fps={30}>
+    <div className="w-screen h-screen bg-gray-900 flex flex-col items-center justify-center">
+      <button onClick={() => videoCanvasRef.current?.play()}>Play</button>
+      <button onClick={() => videoCanvasRef.current?.pause()}>Pause</button>
+      <div className="h-1/2 w-1/2">
+        <VideoCanvas
+          fps={10}
+          onVideoCanvasCreated={(videoCanvas) => {
+            videoCanvasRef.current = videoCanvas;
+          }}
+          camera={{ position: [0, 0, 8] }}
+          gl={{ preserveDrawingBuffer: true }}
+        >
           <ambientLight intensity={0.4} />
           <directionalLight position={[10, 10, 5]} intensity={1} />
           <BouncingBall />
           <Walls />
           <OrbitControls />
-        </VideoTimeline>
-      </Canvas>
+        </VideoCanvas>
+      </div>
     </div>
   );
 }
 
 function BouncingBall() {
-  const timeline = useTimeline();
+  const canvas = useVideoCanvas();
   const meshRef = useRef<THREE.Mesh>(null);
 
   // Define boundaries
@@ -48,7 +59,7 @@ function BouncingBall() {
   useFrame((state) => {
     if (!meshRef.current) return;
 
-    const time = timeline.player.time;
+    const time = canvas.time;
 
     // Define speeds for each axis (cycles per second)
     const speedX = 0.8;
@@ -76,8 +87,8 @@ function BouncingBall() {
     <mesh
       ref={meshRef}
       onPointerDown={() =>
-        timeline.recorder
-          .record({ duration: 5 })
+        canvas
+          .record({ duration: 8 })
           .then((blob) => download(blob, "myfile"))
           .catch((err) => console.log("ERRRRRRRRORR", err?.message))
       }

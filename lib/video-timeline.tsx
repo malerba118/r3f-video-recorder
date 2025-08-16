@@ -19,43 +19,63 @@ import {
   useLayoutEffect,
   useMemo,
 } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
+import { Canvas, CanvasProps, useFrame, useThree } from "@react-three/fiber";
 import { WebGLRenderer } from "three";
 
 function even(n: number) {
   return n & 1 ? n + 1 : n; // next even
 }
 
-const VideoTimelineContext = createContext<{
-  player: VideoPlayer;
-  recorder: VideoRecorder;
-} | null>(null);
+const VideoCanvasContext = createContext<VideoCanvasManager | null>(null);
 
-export const useTimeline = () => {
-  const timeline = useContext(VideoTimelineContext);
-  if (!timeline)
-    throw new Error("Can only call useTimeline inside of VideoTimeline");
-  return timeline;
+export const useVideoCanvas = () => {
+  const canvas = useContext(VideoCanvasContext);
+  if (!canvas)
+    throw new Error("Can only call useVideoCanvas inside of VideoCanvas");
+  return canvas;
 };
 
-export const VideoTimeline = ({
-  children,
-  fps,
-}: {
-  children: ReactNode;
+interface VideoCanvasProps extends CanvasProps {
   fps: number;
+  onVideoCanvasCreated?: (videoCanvas: VideoCanvasManager) => void;
+}
+
+export const VideoCanvas = ({
+  fps,
+  children,
+  onVideoCanvasCreated,
+  ...otherProps
+}: VideoCanvasProps) => {
+  return (
+    <Canvas {...otherProps}>
+      <VideoCanvasInner fps={fps} onCreated={onVideoCanvasCreated}>
+        {children}
+      </VideoCanvasInner>
+    </Canvas>
+  );
+};
+
+const VideoCanvasInner = ({
+  fps,
+  children,
+  onCreated,
+}: {
+  fps: number;
+  children: ReactNode;
+  onCreated?: (videoCanvas: VideoCanvasManager) => void;
 }) => {
   const { gl, size } = useThree((state) => ({
     gl: state.gl,
     size: state.size,
   }));
-  const timeline = useMemo(
-    () => ({
-      player: new VideoPlayer({ fps }),
-      recorder: new VideoRecorder(gl, { fps }),
-    }),
+  const videoCanvas = useMemo(
+    () => new VideoCanvasManager(gl, { fps }),
     [gl, fps]
   );
+
+  useLayoutEffect(() => {
+    onCreated?.(videoCanvas);
+  }, [videoCanvas, onCreated]);
 
   // h264 encoding requires that resolution width & height are even numbers.
   // Here we monkey patch the WebGLRenderer setSize function to ensure renderer
@@ -75,49 +95,106 @@ export const VideoTimeline = ({
 
   useFrame(({ gl, scene, camera }) => {
     if (
-      timeline.recorder.recording &&
-      timeline.recorder.recording.status ===
-        VideoRecordingStatus.ReadyForFrames &&
-      timeline.recorder.recording.frameCount <= timeline.player.frame &&
-      !timeline.recorder.recording.isCapturingFrame
+      videoCanvas.recording &&
+      videoCanvas.recording.status === VideoRecordingStatus.ReadyForFrames &&
+      videoCanvas.recording.frameCount <= videoCanvas.frame &&
+      !videoCanvas.recording.isCapturingFrame
     ) {
-      timeline.recorder.recording.captureFrame().then(() => {
-        timeline.player.setFrame(timeline.player.frame + 1);
+      videoCanvas.recording.captureFrame().then(() => {
+        videoCanvas.setFrame(videoCanvas.frame + 1);
       });
     }
     gl.render(scene, camera);
   }, 1);
 
   return (
-    <VideoTimelineContext.Provider value={timeline}>
+    <VideoCanvasContext.Provider value={videoCanvas}>
       {children}
-    </VideoTimelineContext.Provider>
+    </VideoCanvasContext.Provider>
   );
 };
 
 type Seconds = number;
 
-export class VideoPlayer {
-  time: Seconds = 0;
-  playing = false;
+// export class VideoPlayer {
+//   time: Seconds = 0;
+//   playing = false;
+//   fps: number;
+//   private lastTimestamp: number | null = null;
+//   private rafId: number | null = null;
+
+//   constructor({ fps = 60 }: { fps?: number } = {}) {
+//     this.fps = fps;
+//   }
+
+//   get frame() {
+//     return Math.floor(this.time * this.fps + 0.00001);
+//   }
+
+//   setFrame(frame: number) {
+//     return (this.time = frame / this.fps);
+//   }
+
+//   play() {
+//     this.playing = true;
+//     if (this.rafId === null) {
+//       this.lastTimestamp = performance.now();
+//       this.rafId = requestAnimationFrame(this.loop);
+//     }
+//   }
+
+//   pause() {
+//     this.playing = false;
+//     if (this.rafId !== null) {
+//       cancelAnimationFrame(this.rafId);
+//       this.rafId = null;
+//     }
+//   }
+
+//   private loop = () => {
+//     if (!this.playing) return;
+//     const timestamp = performance.now();
+//     const delta = timestamp - this.lastTimestamp!;
+//     this.lastTimestamp = timestamp;
+//     this.time += delta / 1000;
+//     this.rafId = requestAnimationFrame(this.loop);
+//   };
+// }
+
+const EPSILON = 1e-7;
+
+export class VideoCanvasManager {
+  gl: WebGLRenderer;
   fps: number;
+  recording: VideoRecording | null = null;
+  rawTime: Seconds = 0;
+  isPlaying = false;
   private lastTimestamp: number | null = null;
   private rafId: number | null = null;
 
-  constructor({ fps = 60 }: { fps?: number } = {}) {
+  constructor(gl: WebGLRenderer, { fps = 60 }: { fps?: number } = {}) {
+    this.gl = gl;
     this.fps = fps;
   }
 
+  get time() {
+    return this.frame / this.fps;
+  }
+
+  setTime(time: Seconds) {
+    return this.setFrame(Math.floor(time * this.fps + EPSILON));
+  }
+
   get frame() {
-    return Math.floor(this.time * this.fps + 0.00001);
+    return Math.floor(this.rawTime * this.fps + EPSILON);
   }
 
   setFrame(frame: number) {
-    return (this.time = frame / this.fps);
+    return (this.rawTime = Math.floor(frame + EPSILON) / this.fps);
   }
 
   play() {
-    this.playing = true;
+    this.isPlaying = true;
     if (this.rafId === null) {
       this.lastTimestamp = performance.now();
       this.rafId = requestAnimationFrame(this.loop);
@@ -125,7 +202,7 @@ export class VideoPlayer {
   }
 
   pause() {
-    this.playing = false;
+    this.isPlaying = false;
     if (this.rafId !== null) {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
@@ -133,24 +210,13 @@ export class VideoPlayer {
   }
 
   private loop = () => {
-    if (!this.playing) return;
+    if (!this.isPlaying) return;
     const timestamp = performance.now();
     const delta = timestamp - this.lastTimestamp!;
     this.lastTimestamp = timestamp;
-    this.time += delta / 1000;
+    this.rawTime += delta / 1000;
     this.rafId = requestAnimationFrame(this.loop);
   };
-}
-
-export class VideoRecorder {
-  gl: WebGLRenderer;
-  fps: number;
-  recording: VideoRecording | null = null;
-
-  constructor(gl: WebGLRenderer, { fps = 60 }: { fps?: number } = {}) {
-    this.gl = gl;
-    this.fps = fps;
-  }
 
   record({
     duration,
@@ -182,7 +248,7 @@ enum VideoRecordingStatus {
   Canceling = "canceling",
 }
 
-type VideoRecordingConstructorParams = {
+type VideoRecordingParams = {
   canvas: HTMLCanvasElement;
   fps: number;
   duration: Seconds;
@@ -206,7 +272,7 @@ class VideoRecording {
   status: VideoRecordingStatus = VideoRecordingStatus.Initializing;
   isCapturingFrame: boolean = false;
 
-  constructor(params: VideoRecordingConstructorParams) {
+  constructor(params: VideoRecordingParams) {
     this.canvas = params.canvas;
     this.fps = params.fps;
     this.duration = params.duration;
@@ -242,9 +308,10 @@ class VideoRecording {
       if (this.frameCount / this.fps >= this.duration) {
         await this.stop();
       }
-      this.isCapturingFrame = false;
     } catch (err) {
-      this.cancel(err);
+      await this.cancel(err);
+    } finally {
+      this.isCapturingFrame = false;
     }
   }
 
