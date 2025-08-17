@@ -6,8 +6,6 @@ import {
   Mp4OutputFormat,
   BufferTarget,
   QUALITY_MEDIUM,
-  getFirstEncodableVideoCodec,
-  getEncodableVideoCodecs,
   OutputFormat,
   VideoCodec,
 } from "mediabunny";
@@ -15,12 +13,16 @@ import {
   createContext,
   type ReactNode,
   useContext,
-  useEffect,
   useLayoutEffect,
   useMemo,
+  useState,
 } from "react";
 import { Canvas, CanvasProps, useFrame, useThree } from "@react-three/fiber";
 import { WebGLRenderer } from "three";
+
+type Seconds = number;
+
+const EPSILON = 1e-7;
 
 function even(n: number) {
   return n & 1 ? n + 1 : n; // next even
@@ -47,7 +49,22 @@ export const VideoCanvas = ({
   ...otherProps
 }: VideoCanvasProps) => {
   return (
-    <Canvas {...otherProps}>
+    <Canvas
+      {...otherProps}
+      onCreated={(state) => {
+        // h264 encoding requires that resolution width & height are even numbers.
+        // Here we monkey patch the WebGLRenderer setSize function to ensure renderer
+        // dimensions will always be even numbers.
+        // @ts-ignore
+        state.gl.originalSetSize = state.gl.setSize;
+        state.gl.setSize = function (width, height, updateStyle = true) {
+          // @ts-ignore
+          state.gl.originalSetSize(even(width), even(height), updateStyle);
+        };
+        state.gl.setSize(state.size.width, state.size.height, false);
+        otherProps.onCreated?.(state);
+      }}
+    >
       <VideoCanvasInner fps={fps} onCreated={onVideoCanvasCreated}>
         {children}
       </VideoCanvasInner>
@@ -68,30 +85,27 @@ const VideoCanvasInner = ({
     gl: state.gl,
     size: state.size,
   }));
-  const videoCanvas = useMemo(
-    () => new VideoCanvasManager(gl, { fps }),
-    [gl, fps]
-  );
+  const [videoCanvas] = useState(() => new VideoCanvasManager(gl, { fps }));
 
   useLayoutEffect(() => {
     onCreated?.(videoCanvas);
   }, [videoCanvas, onCreated]);
 
-  // h264 encoding requires that resolution width & height are even numbers.
-  // Here we monkey patch the WebGLRenderer setSize function to ensure renderer
-  // dimensions will always be even numbers.
-  useLayoutEffect(() => {
-    // @ts-ignore
-    gl.originalSetSize = gl.setSize;
-    gl.setSize = function (width, height, updateStyle = true) {
-      // @ts-ignore
-      gl.originalSetSize(even(width), even(height), updateStyle);
-    };
-  }, [gl]);
+  // // h264 encoding requires that resolution width & height are even numbers.
+  // // Here we monkey patch the WebGLRenderer setSize function to ensure renderer
+  // // dimensions will always be even numbers.
+  // useLayoutEffect(() => {
+  //   // @ts-ignore
+  //   gl.originalSetSize = gl.setSize;
+  //   gl.setSize = function (width, height, updateStyle = true) {
+  //     // @ts-ignore
+  //     gl.originalSetSize(even(width), even(height), updateStyle);
+  //   };
+  // }, [gl]);
 
-  useLayoutEffect(() => {
-    gl.setSize(size.width, size.height, false);
-  }, [gl, size.width, size.height]);
+  // useLayoutEffect(() => {
+  //   gl.setSize(size.width, size.height, false);
+  // }, [gl, size.width, size.height]);
 
   useFrame(({ gl, scene, camera }) => {
     if (
@@ -113,55 +127,6 @@ const VideoCanvasInner = ({
     </VideoCanvasContext.Provider>
   );
 };
-
-type Seconds = number;
-
-// export class VideoPlayer {
-//   time: Seconds = 0;
-//   playing = false;
-//   fps: number;
-//   private lastTimestamp: number | null = null;
-//   private rafId: number | null = null;
-
-//   constructor({ fps = 60 }: { fps?: number } = {}) {
-//     this.fps = fps;
-//   }
-
-//   get frame() {
-//     return Math.floor(this.time * this.fps + 0.00001);
-//   }
-
-//   setFrame(frame: number) {
-//     return (this.time = frame / this.fps);
-//   }
-
-//   play() {
-//     this.playing = true;
-//     if (this.rafId === null) {
-//       this.lastTimestamp = performance.now();
-//       this.rafId = requestAnimationFrame(this.loop);
-//     }
-//   }
-
-//   pause() {
-//     this.playing = false;
-//     if (this.rafId !== null) {
-//       cancelAnimationFrame(this.rafId);
-//       this.rafId = null;
-//     }
-//   }
-
-//   private loop = () => {
-//     if (!this.playing) return;
-//     const timestamp = performance.now();
-//     const delta = timestamp - this.lastTimestamp!;
-//     this.lastTimestamp = timestamp;
-//     this.time += delta / 1000;
-//     this.rafId = requestAnimationFrame(this.loop);
-//   };
-// }
-
-const EPSILON = 1e-7;
 
 export class VideoCanvasManager {
   gl: WebGLRenderer;
