@@ -29,7 +29,7 @@ import {
   useThree,
 } from "@react-three/fiber";
 import { WebGLRenderer } from "three";
-import { action, makeObservable, observable } from "mobx";
+import { action, makeObservable, observable, runInAction } from "mobx";
 
 type Seconds = number;
 
@@ -294,11 +294,17 @@ class VideoRecording {
     this.output
       .start()
       .then(() => {
-        this.status = VideoRecordingStatus.ReadyForFrames;
+        this.setStatus(VideoRecordingStatus.ReadyForFrames);
       })
       .catch((e) => {
         this.cancel(e || new Error("Unable to initialize recording"));
       });
+
+    makeObservable(this, {
+      status: observable.ref,
+      // @ts-ignore
+      setStatus: action,
+    });
   }
 
   async captureFrame() {
@@ -316,9 +322,13 @@ class VideoRecording {
     }
   }
 
+  private setStatus(status: VideoRecordingStatus) {
+    this.status = status;
+  }
+
   private stop = async () => {
     try {
-      this.status = VideoRecordingStatus.Finalizing;
+      this.setStatus(VideoRecordingStatus.Finalizing);
       this.canvasSource.close();
       await this.output.finalize();
       const buffer = (this.output.target as BufferTarget).buffer;
@@ -333,7 +343,7 @@ class VideoRecording {
 
   private cancel = async (err: unknown = new Error("Recording canceled")) => {
     try {
-      this.status = VideoRecordingStatus.Canceling;
+      this.setStatus(VideoRecordingStatus.Canceling);
       this.canvasSource.close();
       await this.output.cancel();
       this.onError(err);
