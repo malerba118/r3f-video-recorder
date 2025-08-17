@@ -38,10 +38,8 @@ export default function Scene() {
 
       <div className="h-1/2 w-1/2 bg-black">
         <VideoCanvas
+          ref={videoCanvasRef}
           fps={10}
-          onVideoCanvasCreated={(videoCanvas) => {
-            videoCanvasRef.current = videoCanvas;
-          }}
           camera={{ position: [0, 0, 8] }}
           gl={{ preserveDrawingBuffer: true, alpha: false }}
         >

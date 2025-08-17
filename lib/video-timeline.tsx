@@ -11,8 +11,10 @@ import {
 } from "mediabunny";
 import {
   createContext,
+  forwardRef,
   type ReactNode,
   useContext,
+  useImperativeHandle,
   useLayoutEffect,
   useMemo,
   useState,
@@ -39,57 +41,52 @@ export const useVideoCanvas = () => {
 
 interface VideoCanvasProps extends CanvasProps {
   fps: number;
-  onVideoCanvasCreated?: (videoCanvas: VideoCanvasManager) => void;
 }
 
-export const VideoCanvas = ({
-  fps,
-  children,
-  onVideoCanvasCreated,
-  ...otherProps
-}: VideoCanvasProps) => {
-  return (
-    <Canvas
-      {...otherProps}
-      onCreated={(state) => {
-        // h264 encoding requires that resolution width & height are even numbers.
-        // Here we monkey patch the WebGLRenderer setSize function to ensure renderer
-        // dimensions will always be even numbers.
-        // @ts-ignore
-        state.gl.originalSetSize = state.gl.setSize;
-        state.gl.setSize = function (width, height, updateStyle = true) {
+export const VideoCanvas = forwardRef<VideoCanvasManager, VideoCanvasProps>(
+  ({ fps, children, ...otherProps }, ref) => {
+    return (
+      <Canvas
+        {...otherProps}
+        onCreated={(state) => {
+          // h264 encoding requires that resolution width & height are even numbers.
+          // Here we monkey patch the WebGLRenderer setSize function to ensure renderer
+          // dimensions will always be even numbers.
           // @ts-ignore
-          state.gl.originalSetSize(even(width), even(height), updateStyle);
-        };
-        state.gl.setSize(state.size.width, state.size.height, false);
-        otherProps.onCreated?.(state);
-      }}
-    >
-      <VideoCanvasInner fps={fps} onCreated={onVideoCanvasCreated}>
-        {children}
-      </VideoCanvasInner>
-    </Canvas>
-  );
-};
+          state.gl.originalSetSize = state.gl.setSize;
+          state.gl.setSize = function (width, height, updateStyle = true) {
+            // @ts-ignore
+            state.gl.originalSetSize(even(width), even(height), updateStyle);
+          };
+          state.gl.setSize(state.size.width, state.size.height, false);
+          otherProps.onCreated?.(state);
+        }}
+      >
+        <VideoCanvasInner ref={ref} fps={fps}>
+          {children}
+        </VideoCanvasInner>
+      </Canvas>
+    );
+  }
+);
 
-const VideoCanvasInner = ({
-  fps,
-  children,
-  onCreated,
-}: {
-  fps: number;
-  children: ReactNode;
-  onCreated?: (videoCanvas: VideoCanvasManager) => void;
-}) => {
+const VideoCanvasInner = forwardRef<
+  VideoCanvasManager,
+  {
+    fps: number;
+    children: ReactNode;
+  }
+>(({ fps, children }, ref) => {
   const { gl, size } = useThree((state) => ({
     gl: state.gl,
     size: state.size,
   }));
-  const [videoCanvas] = useState(() => new VideoCanvasManager(gl, { fps }));
+  const videoCanvas = useMemo(
+    () => new VideoCanvasManager(gl, { fps }),
+    [gl, fps]
+  );
 
-  useLayoutEffect(() => {
-    onCreated?.(videoCanvas);
-  }, [videoCanvas, onCreated]);
+  useImperativeHandle(ref, () => videoCanvas);
 
   // // h264 encoding requires that resolution width & height are even numbers.
   // // Here we monkey patch the WebGLRenderer setSize function to ensure renderer
@@ -126,7 +123,7 @@ const VideoCanvasInner = ({
       {children}
     </VideoCanvasContext.Provider>
   );
-};
+});
 
 export class VideoCanvasManager {
   gl: WebGLRenderer;
