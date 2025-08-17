@@ -229,28 +229,44 @@ export class VideoCanvasManager {
   });
 
   record({
+    type,
     duration,
     startTime = this.time,
     format = new Mp4OutputFormat(),
     codec = "avc",
   }: {
+    type: "realtime" | "deterministic";
     duration: Seconds;
     startTime?: Seconds;
     format?: OutputFormat;
     codec?: VideoCodec;
   }) {
     return new Promise<Blob>(async (resolver, rejecter) => {
-      this.pause();
-      this.recording = new VideoRecording({
-        canvas: this.gl.domElement,
-        fps: this.fps,
-        duration,
-        startTime,
-        format,
-        codec,
-        onDone: resolver,
-        onError: rejecter,
-      });
+      if (type === "deterministic") {
+        this.pause();
+        this.recording = new DeterminsticVideoRecording({
+          canvas: this.gl.domElement,
+          fps: this.fps,
+          duration,
+          startTime,
+          format,
+          codec,
+          onDone: resolver,
+          onError: rejecter,
+        });
+      } else {
+        this.play();
+        this.recording = new RealtimeVideoRecording({
+          canvas: this.gl.domElement,
+          fps: this.fps,
+          duration,
+          startTime,
+          format,
+          codec,
+          onDone: resolver,
+          onError: rejecter,
+        });
+      }
     });
   }
 }
@@ -266,18 +282,16 @@ type VideoRecordingParams = {
   canvas: HTMLCanvasElement;
   fps: number;
   startTime: Seconds;
-  duration: Seconds;
   format: OutputFormat;
   codec: VideoCodec;
   onDone: (data: Blob) => void;
   onError: (err: unknown) => void;
 };
 
-class VideoRecording {
+abstract class VideoRecording {
   canvas: HTMLCanvasElement;
   fps: number;
   startTime: Seconds;
-  duration: Seconds;
   lastCapturedFrame: number = -1;
   format: OutputFormat;
   codec: VideoCodec;
@@ -292,7 +306,7 @@ class VideoRecording {
   constructor(params: VideoRecordingParams) {
     this.canvas = params.canvas;
     this.startTime = params.startTime;
-    this.duration = params.duration;
+    // this.duration = params.duration;
     this.fps = params.fps;
     this.format = params.format;
     this.codec = params.codec;
@@ -333,34 +347,36 @@ class VideoRecording {
     return frame / this.fps;
   }
 
-  private get startFrame() {
+  protected get startFrame() {
     return this.toFrame(this.startTime);
   }
 
-  async captureFrame(frame: number) {
-    try {
-      this.isCapturingFrame = true;
-      await this.canvasSource.add(
-        this.toTime(frame) - this.toTime(this.startFrame),
-        this.toTime(1) // time of 1 frame
-      );
-      this.lastCapturedFrame = frame;
-      this.frameCount += 1;
-      if (this.frameCount >= this.toFrame(this.duration)) {
-        await this.stop();
-      }
-    } catch (err) {
-      await this.cancel(err);
-    } finally {
-      this.isCapturingFrame = false;
-    }
-  }
+  // async captureFrame(frame: number) {
+  //   try {
+  //     this.isCapturingFrame = true;
+  //     await this.canvasSource.add(
+  //       this.toTime(frame) - this.toTime(this.startFrame),
+  //       this.toTime(1) // time of 1 frame
+  //     );
+  //     this.lastCapturedFrame = frame;
+  //     this.frameCount += 1;
+  //     if (this.frameCount >= this.toFrame(this.duration)) {
+  //       await this.stop();
+  //     }
+  //   } catch (err) {
+  //     await this.cancel(err);
+  //   } finally {
+  //     this.isCapturingFrame = false;
+  //   }
+  // }
 
-  private setStatus(status: VideoRecordingStatus) {
+  abstract captureFrame(frame: number): Promise<void>;
+
+  protected setStatus(status: VideoRecordingStatus) {
     this.status = status;
   }
 
-  private stop = async () => {
+  stop = async () => {
     try {
       this.setStatus(VideoRecordingStatus.Finalizing);
       this.canvasSource.close();
@@ -375,7 +391,7 @@ class VideoRecording {
     }
   };
 
-  private cancel = async (err: unknown = new Error("Recording canceled")) => {
+  cancel = async (err: unknown = new Error("Recording canceled")) => {
     try {
       this.setStatus(VideoRecordingStatus.Canceling);
       this.canvasSource.close();
@@ -385,4 +401,69 @@ class VideoRecording {
       this.onError(err);
     }
   };
+}
+
+interface DeterminsticVideoRecordingParams extends VideoRecordingParams {
+  duration: Seconds;
+}
+
+class DeterminsticVideoRecording extends VideoRecording {
+  duration: Seconds;
+
+  constructor(params: DeterminsticVideoRecordingParams) {
+    super(params);
+    this.duration = params.duration;
+  }
+
+  async captureFrame(frame: number) {
+    try {
+      this.isCapturingFrame = true;
+      await this.canvasSource.add(
+        this.toTime(frame) - this.toTime(this.startFrame),
+        this.toTime(1) // time of 1 frame
+      );
+      this.lastCapturedFrame = frame;
+      if (this.toTime(frame - this.startFrame) >= this.duration) {
+        await this.stop();
+      }
+    } catch (err) {
+      await this.cancel(err);
+    } finally {
+      this.isCapturingFrame = false;
+    }
+  }
+}
+
+interface RealtimeVideoRecordingParams extends VideoRecordingParams {
+  duration?: Seconds;
+}
+
+class RealtimeVideoRecording extends VideoRecording {
+  duration: Seconds | null;
+
+  constructor(params: RealtimeVideoRecordingParams) {
+    super(params);
+    this.duration = params.duration ?? null;
+  }
+
+  async captureFrame(frame: number) {
+    try {
+      this.isCapturingFrame = true;
+      await this.canvasSource.add(
+        this.toTime(frame) - this.toTime(this.startFrame),
+        this.toTime(1) // time of 1 frame
+      );
+      this.lastCapturedFrame = frame;
+      if (
+        this.duration !== null &&
+        this.toTime(frame - this.startFrame) >= this.duration
+      ) {
+        await this.stop();
+      }
+    } catch (err) {
+      await this.cancel(err);
+    } finally {
+      this.isCapturingFrame = false;
+    }
+  }
 }

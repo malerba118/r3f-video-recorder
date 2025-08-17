@@ -77,6 +77,7 @@ export const Scene = observer(() => {
                   onClick={() => {
                     videoCanvas
                       ?.record({
+                        type: "deterministic",
                         duration: Math.min(
                           maxDuration,
                           maxDuration - videoCanvas.time
