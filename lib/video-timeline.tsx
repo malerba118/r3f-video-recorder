@@ -14,6 +14,7 @@ import {
   forwardRef,
   type ReactNode,
   useContext,
+  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
@@ -27,7 +28,8 @@ type Seconds = number;
 const EPSILON = 1e-7;
 
 function even(n: number) {
-  return n & 1 ? n + 1 : n; // next even
+  const rounded = Math.round(n);
+  return rounded & 1 ? rounded + 1 : rounded; // next even
 }
 
 const VideoCanvasContext = createContext<VideoCanvasManager | null>(null);
@@ -48,19 +50,20 @@ export const VideoCanvas = forwardRef<VideoCanvasManager, VideoCanvasProps>(
     return (
       <Canvas
         {...otherProps}
-        onCreated={(state) => {
-          // h264 encoding requires that resolution width & height are even numbers.
-          // Here we monkey patch the WebGLRenderer setSize function to ensure renderer
-          // dimensions will always be even numbers.
-          // @ts-ignore
-          state.gl.originalSetSize = state.gl.setSize;
-          state.gl.setSize = function (width, height, updateStyle = true) {
-            // @ts-ignore
-            state.gl.originalSetSize(even(width), even(height), updateStyle);
-          };
-          state.gl.setSize(state.size.width, state.size.height, false);
-          otherProps.onCreated?.(state);
-        }}
+        gl={{ preserveDrawingBuffer: true }}
+        // onCreated={(state) => {
+        //   // h264 encoding requires that resolution width & height are even numbers.
+        //   // Here we monkey patch the WebGLRenderer setSize function to ensure renderer
+        //   // dimensions will always be even numbers.
+        //   // @ts-ignore
+        //   state.gl.originalSetSize = state.gl.setSize;
+        //   state.gl.setSize = function (width, height, updateStyle = true) {
+        //     // @ts-ignore
+        //     state.gl.originalSetSize(even(width), even(height), updateStyle);
+        //   };
+        //   state.gl.setSize(state.size.width, state.size.height, false);
+        //   otherProps.onCreated?.(state);
+        // }}
       >
         <VideoCanvasInner ref={ref} fps={fps}>
           {children}
@@ -81,28 +84,31 @@ const VideoCanvasInner = forwardRef<
     gl: state.gl,
     size: state.size,
   }));
-  const videoCanvas = useMemo(
-    () => new VideoCanvasManager(gl, { fps }),
-    [gl, fps]
-  );
+  const [videoCanvas] = useState(() => new VideoCanvasManager(gl, { fps }));
+
+  // useLayoutEffect(() => {
+  //   videoCanvas.gl = gl;
+  //   videoCanvas.fps = fps;
+  // }, [gl, fps]);
 
   useImperativeHandle(ref, () => videoCanvas);
 
-  // // h264 encoding requires that resolution width & height are even numbers.
-  // // Here we monkey patch the WebGLRenderer setSize function to ensure renderer
-  // // dimensions will always be even numbers.
-  // useLayoutEffect(() => {
-  //   // @ts-ignore
-  //   gl.originalSetSize = gl.setSize;
-  //   gl.setSize = function (width, height, updateStyle = true) {
-  //     // @ts-ignore
-  //     gl.originalSetSize(even(width), even(height), updateStyle);
-  //   };
-  // }, [gl]);
+  // h264 encoding requires that resolution width & height are even numbers.
+  // Here we monkey patch the WebGLRenderer setSize function to ensure renderer
+  // dimensions will always be even numbers.
+  useLayoutEffect(() => {
+    // @ts-ignore
+    gl.originalSetSize = gl.setSize;
+    gl.setSize = function (width, height, updateStyle = true) {
+      // @ts-ignore
+      gl.originalSetSize(even(width), even(height), updateStyle);
+      console.log(even(width), even(height));
+    };
+  }, [gl]);
 
-  // useLayoutEffect(() => {
-  //   gl.setSize(size.width, size.height, false);
-  // }, [gl, size.width, size.height]);
+  useLayoutEffect(() => {
+    gl.setSize(size.width, size.height, false);
+  }, [gl, size.width, size.height]);
 
   useFrame(({ gl, scene, camera }) => {
     if (
