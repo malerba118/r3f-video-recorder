@@ -62,12 +62,13 @@ interface VideoCanvasProps extends Omit<CanvasProps, "onCreated"> {
   onCreated?: (params: VideoCanvasRootState) => void;
 }
 
-export const VideoCanvas = forwardRef<VideoCanvasManager, VideoCanvasProps>(
+export const VideoCanvas = forwardRef<HTMLCanvasElement, VideoCanvasProps>(
   ({ fps, onCreated, children, ...otherProps }, ref) => {
     const videoCanvasRef = useRef<VideoCanvasManager>(null);
     return (
       <Canvas
         {...otherProps}
+        ref={ref}
         gl={{ preserveDrawingBuffer: true }}
         onCreated={(state) => {
           onCreated?.({
