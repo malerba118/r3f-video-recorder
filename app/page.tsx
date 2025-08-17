@@ -1,9 +1,9 @@
-import Component from "../bouncing-ball"
+import { Scene } from "../bouncing-ball";
 
 export default function Page() {
   return (
     <div>
-      <Component />
+      <Scene />
     </div>
-  )
+  );
 }

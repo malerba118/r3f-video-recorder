@@ -18,14 +18,26 @@ import {
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { Canvas, CanvasProps, useFrame, useThree } from "@react-three/fiber";
+import {
+  Canvas,
+  CanvasProps,
+  RootState,
+  useFrame,
+  useThree,
+} from "@react-three/fiber";
 import { WebGLRenderer } from "three";
+import { action, makeObservable, observable } from "mobx";
 
 type Seconds = number;
 
 const EPSILON = 1e-7;
+
+function floor(n: number) {
+  return Math.floor(n + EPSILON);
+}
 
 function even(n: number) {
   const rounded = Math.round(n);
@@ -41,16 +53,28 @@ export const useVideoCanvas = () => {
   return canvas;
 };
 
-interface VideoCanvasProps extends CanvasProps {
+type VideoCanvasRootState = RootState & {
+  videoCanvas: VideoCanvasManager;
+};
+
+interface VideoCanvasProps extends Omit<CanvasProps, "onCreated"> {
   fps: number;
+  onCreated?: (params: VideoCanvasRootState) => void;
 }
 
 export const VideoCanvas = forwardRef<VideoCanvasManager, VideoCanvasProps>(
-  ({ fps, children, ...otherProps }, ref) => {
+  ({ fps, onCreated, children, ...otherProps }, ref) => {
+    const videoCanvasRef = useRef<VideoCanvasManager>(null);
     return (
       <Canvas
         {...otherProps}
         gl={{ preserveDrawingBuffer: true }}
+        onCreated={(state) => {
+          onCreated?.({
+            ...state,
+            videoCanvas: videoCanvasRef.current!,
+          });
+        }}
         // onCreated={(state) => {
         //   // h264 encoding requires that resolution width & height are even numbers.
         //   // Here we monkey patch the WebGLRenderer setSize function to ensure renderer
@@ -65,7 +89,7 @@ export const VideoCanvas = forwardRef<VideoCanvasManager, VideoCanvasProps>(
         //   otherProps.onCreated?.(state);
         // }}
       >
-        <VideoCanvasInner ref={ref} fps={fps}>
+        <VideoCanvasInner ref={videoCanvasRef} fps={fps}>
           {children}
         </VideoCanvasInner>
       </Canvas>
@@ -99,10 +123,9 @@ const VideoCanvasInner = forwardRef<
   useLayoutEffect(() => {
     // @ts-ignore
     gl.originalSetSize = gl.setSize;
-    gl.setSize = function (width, height, updateStyle = true) {
+    gl.setSize = function (width: number, height: number, updateStyle = true) {
       // @ts-ignore
       gl.originalSetSize(even(width), even(height), updateStyle);
-      console.log(even(width), even(height));
     };
   }, [gl]);
 
@@ -143,6 +166,16 @@ export class VideoCanvasManager {
   constructor(gl: WebGLRenderer, { fps = 60 }: { fps?: number } = {}) {
     this.gl = gl;
     this.fps = fps;
+    makeObservable(this, {
+      isPlaying: observable.ref,
+      rawTime: observable.ref,
+      recording: observable.ref,
+      fps: observable.ref,
+      setTime: action,
+      setFrame: action,
+      play: action,
+      pause: action,
+    });
   }
 
   get time() {
@@ -150,15 +183,15 @@ export class VideoCanvasManager {
   }
 
   setTime(time: Seconds) {
-    return this.setFrame(Math.floor(time * this.fps + EPSILON));
+    return this.setFrame(floor(time * this.fps));
   }
 
   get frame() {
-    return Math.floor(this.rawTime * this.fps + EPSILON);
+    return floor(this.rawTime * this.fps);
   }
 
   setFrame(frame: number) {
-    return (this.rawTime = Math.floor(frame + EPSILON) / this.fps);
+    return (this.rawTime = floor(frame) / this.fps);
   }
 
   play() {
@@ -177,14 +210,14 @@ export class VideoCanvasManager {
     }
   }
 
-  private loop = () => {
+  private loop = action(() => {
     if (!this.isPlaying) return;
     const timestamp = performance.now();
     const delta = timestamp - this.lastTimestamp!;
     this.lastTimestamp = timestamp;
     this.rawTime += delta / 1000;
     this.rafId = requestAnimationFrame(this.loop);
-  };
+  });
 
   record({
     duration,

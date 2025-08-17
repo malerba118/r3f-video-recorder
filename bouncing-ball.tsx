@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
@@ -9,6 +9,8 @@ import {
   VideoCanvas,
   VideoCanvasManager,
 } from "./lib/video-timeline";
+import { Button } from "./components/ui/button";
+import { observer } from "mobx-react";
 
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -19,27 +21,34 @@ function download(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export default function Scene() {
-  const videoCanvasRef = useRef<VideoCanvasManager>(null);
+export const Scene = observer(() => {
+  // const videoCanvasRef = useRef<VideoCanvasManager>(null);
+  const [videoCanvas, setVideoCanvas] = useState<VideoCanvasManager | null>(
+    null
+  );
   return (
     <div className="w-screen h-screen bg-white flex flex-col items-center justify-center">
-      <button onClick={() => videoCanvasRef.current?.play()}>Play</button>
-      <button onClick={() => videoCanvasRef.current?.pause()}>Pause</button>
-      <button
+      {videoCanvas?.isPlaying ? (
+        <Button onClick={() => videoCanvas?.pause()}>Pause</Button>
+      ) : (
+        <Button onClick={() => videoCanvas?.play()}>Play</Button>
+      )}
+      <Button
         onClick={() =>
-          videoCanvasRef.current
+          videoCanvas
             ?.record({ duration: 10 })
             .then((blob) => download(blob, "myfile"))
             .catch((err) => console.log("ERRRRRRRRORR", err?.message))
         }
       >
         Record
-      </button>
+      </Button>
       <div className="h-1/2 w-1/2 bg-black">
         <VideoCanvas
-          ref={videoCanvasRef}
           fps={10}
-          camera={{ position: [0, 0, 8] }}
+          onCreated={({ videoCanvas }) => {
+            setVideoCanvas(videoCanvas);
+          }}
         >
           <color attach="background" args={["black"]} />
           <ambientLight intensity={0.5} />
@@ -49,7 +58,7 @@ export default function Scene() {
       </div>
     </div>
   );
-}
+});
 
 function RotatingCube() {
   const canvas = useVideoCanvas();
