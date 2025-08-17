@@ -138,10 +138,10 @@ const VideoCanvasInner = forwardRef<
     if (
       videoCanvas.recording &&
       videoCanvas.recording.status === VideoRecordingStatus.ReadyForFrames &&
-      videoCanvas.recording.frameCount <= videoCanvas.frame &&
+      videoCanvas.recording.lastCapturedFrame < videoCanvas.frame &&
       !videoCanvas.recording.isCapturingFrame
     ) {
-      videoCanvas.recording.captureFrame().then(() => {
+      videoCanvas.recording.captureFrame(videoCanvas.frame).then(() => {
         videoCanvas.setFrame(videoCanvas.frame + 1);
       });
     }
@@ -179,20 +179,28 @@ export class VideoCanvasManager {
     });
   }
 
+  toFrame(time: Seconds) {
+    return floor(time * this.fps);
+  }
+
+  toTime(frame: number) {
+    return frame / this.fps;
+  }
+
   get time() {
-    return this.frame / this.fps;
+    return this.toTime(this.frame);
   }
 
   setTime(time: Seconds) {
-    return this.setFrame(floor(time * this.fps));
+    this.setFrame(this.toFrame(time));
   }
 
   get frame() {
-    return floor(this.rawTime * this.fps);
+    return this.toFrame(this.rawTime);
   }
 
   setFrame(frame: number) {
-    return (this.rawTime = floor(frame) / this.fps);
+    this.rawTime = this.toTime(floor(frame));
   }
 
   play() {
@@ -222,18 +230,22 @@ export class VideoCanvasManager {
 
   record({
     duration,
+    startTime = this.time,
     format = new Mp4OutputFormat(),
     codec = "avc",
   }: {
     duration: Seconds;
+    startTime?: Seconds;
     format?: OutputFormat;
     codec?: VideoCodec;
   }) {
     return new Promise<Blob>(async (resolver, rejecter) => {
+      this.pause();
       this.recording = new VideoRecording({
         canvas: this.gl.domElement,
         fps: this.fps,
         duration,
+        startTime,
         format,
         codec,
         onDone: resolver,
@@ -253,6 +265,7 @@ enum VideoRecordingStatus {
 type VideoRecordingParams = {
   canvas: HTMLCanvasElement;
   fps: number;
+  startTime: Seconds;
   duration: Seconds;
   format: OutputFormat;
   codec: VideoCodec;
@@ -263,7 +276,9 @@ type VideoRecordingParams = {
 class VideoRecording {
   canvas: HTMLCanvasElement;
   fps: number;
+  startTime: Seconds;
   duration: Seconds;
+  lastCapturedFrame: number = -1;
   format: OutputFormat;
   codec: VideoCodec;
   output: Output;
@@ -276,8 +291,9 @@ class VideoRecording {
 
   constructor(params: VideoRecordingParams) {
     this.canvas = params.canvas;
-    this.fps = params.fps;
+    this.startTime = params.startTime;
     this.duration = params.duration;
+    this.fps = params.fps;
     this.format = params.format;
     this.codec = params.codec;
     this.onDone = params.onDone;
@@ -302,18 +318,35 @@ class VideoRecording {
       });
 
     makeObservable(this, {
+      frameCount: observable.ref,
       status: observable.ref,
       // @ts-ignore
       setStatus: action,
     });
   }
 
-  async captureFrame() {
+  toFrame(time: Seconds) {
+    return floor(time * this.fps);
+  }
+
+  toTime(frame: number) {
+    return frame / this.fps;
+  }
+
+  private get startFrame() {
+    return this.toFrame(this.startTime);
+  }
+
+  async captureFrame(frame: number) {
     try {
       this.isCapturingFrame = true;
-      await this.canvasSource.add(this.frameCount / this.fps, 1 / this.fps);
+      await this.canvasSource.add(
+        this.toTime(frame) - this.toTime(this.startFrame),
+        this.toTime(1) // time of 1 frame
+      );
+      this.lastCapturedFrame = frame;
       this.frameCount += 1;
-      if (this.frameCount / this.fps >= this.duration) {
+      if (this.frameCount >= this.toFrame(this.duration)) {
         await this.stop();
       }
     } catch (err) {
