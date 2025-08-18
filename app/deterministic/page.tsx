@@ -15,6 +15,8 @@ import { Slider } from "../../components/ui/slider";
 import { autorun, reaction, when } from "mobx";
 import FileSaver from "file-saver";
 import { formatTime } from "@/lib/utils";
+import Link from "next/link";
+import { FpsSelector } from "../controls";
 
 function RotatingCube() {
   const canvas = useVideoCanvas();
@@ -37,9 +39,7 @@ function RotatingCube() {
 
 const Page = observer(() => {
   // const videoCanvasRef = useRef<VideoCanvasManager>(null);
-  const fps = 12;
   const maxDuration = 30;
-  const maxFrames = maxDuration * fps;
   const [videoCanvas, setVideoCanvas] = useState<VideoCanvasManager | null>(
     null
   );
@@ -59,26 +59,45 @@ const Page = observer(() => {
   }, [videoCanvas]);
 
   return (
-    <div className="w-screen h-screen bg-white flex flex-col items-center justify-center">
-      <div className="h-1/2 w-1/2 bg-black">
-        <VideoCanvas
-          fps={fps}
-          onCreated={({ videoCanvas }) => {
-            setVideoCanvas(videoCanvas);
-          }}
-        >
-          <color attach="background" args={["black"]} />
-          <ambientLight intensity={0.5} />
-          <directionalLight position={[10, 10, 5]} intensity={1} />
-          <RotatingCube />
-        </VideoCanvas>
-        <div className="h-24 flex flex-col justify-center gap-3">
+    <div className="flex flex-col h-[100dvh]">
+      <div className="p-4 flex gap-4">
+        <Link href="/realtime" className="text-gray-400">
+          Realtime
+        </Link>
+        <Link href="/deterministic" className="text-gray-950">
+          Deterministic
+        </Link>
+      </div>
+      <div className="flex-1 py-24">
+        <div className="flex flex-col gap-4 w-[50vw] mx-auto">
+          <div className="flex justify-end h-4">
+            {videoCanvas && (
+              <span className="tabular-nums text-sm">
+                Frame {videoCanvas.frame ?? 0} of{" "}
+                {videoCanvas.fps * maxDuration}
+              </span>
+            )}
+          </div>
+          <div className="h-[50vh] w-[50vw] bg-black">
+            <VideoCanvas
+              fps={12}
+              onCreated={({ videoCanvas }) => {
+                setVideoCanvas(videoCanvas);
+              }}
+            >
+              <color attach="background" args={["black"]} />
+              <ambientLight intensity={0.5} />
+              <directionalLight position={[10, 10, 5]} intensity={1} />
+              <RotatingCube />
+            </VideoCanvas>
+          </div>
           {videoCanvas && (
             <>
-              <div className="flex items-center gap-4">
-                <p className="tabular-nums text-sm">
-                  {videoCanvas.frame} / {maxFrames}
-                </p>
+              <div className="flex items-center gap-3">
+                <FpsSelector
+                  value={videoCanvas.fps}
+                  onValueChange={(fps) => videoCanvas.setFps(fps)}
+                />
                 <div className="flex-1" />
                 {videoCanvas.isPlaying ? (
                   <Button onClick={() => videoCanvas.pause()}>Pause</Button>
@@ -107,7 +126,7 @@ const Page = observer(() => {
                   value={[videoCanvas.frame]}
                   onValueChange={([frame]) => videoCanvas.setFrame(frame)}
                   min={0}
-                  max={maxFrames}
+                  max={videoCanvas.fps * maxDuration}
                   step={1}
                 />
                 <span>{formatTime(maxDuration)}</span>

@@ -127,27 +127,9 @@ const VideoCanvasInner = forwardRef<
 
   useImperativeHandle(ref, () => videoCanvas);
 
-  // h264 encoding requires that resolution width & height are even numbers.
-  // Here we monkey patch the WebGLRenderer setSize function to ensure renderer
-  // dimensions will always be even numbers.
-  // useLayoutEffect(() => {
-  //   // @ts-ignore
-  //   gl.__originalSetSize = gl.setSize;
-  //   gl.setSize = function (width: number, height: number, updateStyle = true) {
-  //     console.log(width, height);
-  //     width = even(width);
-  //     height = even(height);
-  //     const size = gl.getSize(new Vector2());
-  //     if (size.x !== width || size.y !== height) {
-  //       // @ts-ignore
-  //       gl.__originalSetSize(width, height, updateStyle);
-  //     }
-  //   };
-  // }, [gl]);
-
-  // useLayoutEffect(() => {
-  //   gl.setSize(even(size.width), even(size.height), false);
-  // }, [gl, size.width, size.height]);
+  useEffect(() => {
+    videoCanvas.setFps(fps);
+  }, [videoCanvas, fps]);
 
   useFrame(({ gl, scene, camera, size }) => {
     gl.setSize(even(size.width), even(size.height), false);
@@ -213,6 +195,7 @@ export class VideoCanvasManager {
       fps: observable.ref,
       setTime: action,
       setFrame: action,
+      setFps: action,
       play: action,
       pause: action,
     });
@@ -240,6 +223,10 @@ export class VideoCanvasManager {
 
   setFrame(frame: number) {
     this.rawTime = this.toTime(floor(frame));
+  }
+
+  setFps(fps: number) {
+    this.fps = fps;
   }
 
   play() {

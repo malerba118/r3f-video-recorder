@@ -17,6 +17,7 @@ import FileSaver from "file-saver";
 import { toast } from "sonner";
 import Link from "next/link";
 import { CarouselScene } from "../scenes/carousel";
+import { FpsSelector } from "../controls";
 
 function RotatingCube() {
   const canvas = useVideoCanvas();
@@ -54,6 +55,7 @@ const Page = observer(() => {
       </div>
       <div className="flex-1 py-24">
         <div className="flex flex-col gap-4 w-[50vw] mx-auto">
+          <div className="h-4" />
           <div className="h-[50vh] w-[50vw] bg-black">
             <VideoCanvas
               fps={60}
@@ -62,16 +64,16 @@ const Page = observer(() => {
               }}
               camera={{ position: [0, 0, 100], fov: 15 }}
             >
-              {/* <color attach="background" args={["black"]} />
-              <ambientLight intensity={0.5} />
-              <directionalLight position={[10, 10, 5]} intensity={1} />
-              <RotatingCube /> */}
               <CarouselScene />
             </VideoCanvas>
           </div>
           {videoCanvas && (
             <>
               <div className="flex items-center gap-3">
+                <FpsSelector
+                  value={videoCanvas.fps}
+                  onValueChange={(fps) => videoCanvas.setFps(fps)}
+                />
                 <div className="flex-1" />
                 {videoCanvas.recording ? (
                   <>
