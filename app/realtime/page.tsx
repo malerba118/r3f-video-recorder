@@ -69,39 +69,37 @@ const Page = observer(() => {
               <CarouselScene />
             </VideoCanvas>
           </div>
-          <div className="flex flex-col justify-center gap-3">
-            {videoCanvas && (
-              <>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1" />
-                  {videoCanvas.recording ? (
-                    <>
-                      <Button onClick={() => videoCanvas.recording?.cancel()}>
-                        Cancel
-                      </Button>
-                      <Button onClick={() => videoCanvas.recording?.stop()}>
-                        Stop
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      onClick={() => {
-                        videoCanvas
-                          ?.record({
-                            type: "realtime",
-                            scale: "2x",
-                          })
-                          .then((blob) => FileSaver.saveAs(blob, "video.mp4"))
-                          .catch((err) => toast.error(err?.message));
-                      }}
-                    >
-                      Record
+          {videoCanvas && (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="flex-1" />
+                {videoCanvas.recording ? (
+                  <>
+                    <Button onClick={() => videoCanvas.recording?.cancel()}>
+                      Cancel
                     </Button>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+                    <Button onClick={() => videoCanvas.recording?.stop()}>
+                      Stop
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      videoCanvas
+                        ?.record({
+                          type: "realtime",
+                          scale: "2x",
+                        })
+                        .then((blob) => FileSaver.saveAs(blob, "video.mp4"))
+                        .catch((err) => toast.error(err?.message));
+                    }}
+                  >
+                    Record
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

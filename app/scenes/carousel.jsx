@@ -16,7 +16,7 @@ import "./util";
 export const CarouselScene = () => (
   <>
     <fog attach="fog" args={["#a79", 8.5, 12]} />
-    <ScrollControls pages={4} infinite>
+    <ScrollControls pages={8} infinite>
       <Rig rotation={[0, 0, 0.15]}>
         <Carousel />
       </Rig>
