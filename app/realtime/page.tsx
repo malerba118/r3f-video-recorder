@@ -62,26 +62,31 @@ const Page = observer(() => {
             <>
               <div className="flex items-center gap-3">
                 <div className="flex-1" />
-                {videoCanvas.isPlaying ? (
-                  <Button onClick={() => videoCanvas.pause()}>Pause</Button>
+                {videoCanvas.recording ? (
+                  <>
+                    <Button onClick={() => videoCanvas.recording?.cancel()}>
+                      Cancel
+                    </Button>
+                    <Button onClick={() => videoCanvas.recording?.stop()}>
+                      Stop
+                    </Button>
+                  </>
                 ) : (
-                  <Button onClick={() => videoCanvas.play()}>Play</Button>
+                  <Button
+                    onClick={() => {
+                      videoCanvas
+                        ?.record({
+                          type: "realtime",
+                        })
+                        .then((blob) => FileSaver.saveAs(blob, "video.mp4"))
+                        .catch((err) =>
+                          console.log("ERRRRRRRRORR", err?.message)
+                        );
+                    }}
+                  >
+                    Record
+                  </Button>
                 )}
-                <Button
-                  onClick={() => {
-                    videoCanvas
-                      ?.record({
-                        type: "realtime",
-                        duration: 10,
-                      })
-                      .then((blob) => FileSaver.saveAs(blob, "video.mp4"))
-                      .catch((err) =>
-                        console.log("ERRRRRRRRORR", err?.message)
-                      );
-                  }}
-                >
-                  Record
-                </Button>
               </div>
               {/* <Slider
                 value={[videoCanvas.frame]}

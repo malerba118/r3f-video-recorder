@@ -162,6 +162,22 @@ const VideoCanvasInner = forwardRef<
   );
 });
 
+type DeterministicRecordParams = {
+  type: "deterministic";
+  duration: Seconds;
+  startTime?: Seconds;
+  format?: OutputFormat;
+  codec?: VideoCodec;
+};
+
+type RealtimeRecordParams = {
+  type: "realtime";
+  duration?: Seconds;
+  startTime?: Seconds;
+  format?: OutputFormat;
+  codec?: VideoCodec;
+};
+
 export class VideoCanvasManager {
   gl: WebGLRenderer;
   fps: number;
@@ -241,13 +257,7 @@ export class VideoCanvasManager {
     startTime = this.time,
     format = new Mp4OutputFormat({ fastStart: "in-memory" }),
     codec = "avc",
-  }: {
-    type: "realtime" | "deterministic";
-    duration: Seconds;
-    startTime?: Seconds;
-    format?: OutputFormat;
-    codec?: VideoCodec;
-  }) {
+  }: DeterministicRecordParams | RealtimeRecordParams) {
     return new Promise<Blob>(async (resolve, reject) => {
       if (type === "deterministic") {
         this.pause();
@@ -261,10 +271,12 @@ export class VideoCanvasManager {
           onDone: (blob) => {
             this.pause();
             resolve(blob);
+            this.recording = null;
           },
           onError: (err) => {
             this.pause();
             reject(err);
+            this.recording = null;
           },
         });
       } else {
@@ -279,10 +291,12 @@ export class VideoCanvasManager {
           onDone: (blob) => {
             this.pause();
             resolve(blob);
+            this.recording = null;
           },
           onError: (err) => {
             this.pause();
             reject(err);
+            this.recording = null;
           },
         });
       }
