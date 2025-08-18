@@ -181,7 +181,6 @@ const VideoCanvasInner = forwardRef<
 type DeterministicRecordParams = {
   type: "deterministic";
   duration: Seconds;
-  startTime?: Seconds;
   format?: OutputFormat;
   codec?: VideoCodec;
   scale?: ScalePreset;
@@ -190,7 +189,6 @@ type DeterministicRecordParams = {
 type RealtimeRecordParams = {
   type: "realtime";
   duration?: Seconds;
-  startTime?: Seconds;
   format?: OutputFormat;
   codec?: VideoCodec;
   scale?: ScalePreset;
@@ -272,7 +270,6 @@ export class VideoCanvasManager {
   record({
     type,
     duration,
-    startTime = this.time,
     format = new Mp4OutputFormat(),
     codec = "avc",
     scale = "1x",
@@ -286,7 +283,6 @@ export class VideoCanvasManager {
           canvas: this.gl.domElement,
           fps: this.fps,
           duration,
-          startTime,
           format,
           codec,
           onDone: (blob) => {
@@ -308,7 +304,6 @@ export class VideoCanvasManager {
           canvas: this.gl.domElement,
           fps: this.fps,
           duration,
-          startTime,
           format,
           codec,
           onDone: (blob) => {
@@ -339,7 +334,6 @@ enum VideoRecordingStatus {
 type VideoRecordingParams = {
   canvas: HTMLCanvasElement;
   fps: number;
-  startTime: Seconds;
   format: OutputFormat;
   codec: VideoCodec;
   onDone: (data: Blob) => void;
@@ -349,8 +343,7 @@ type VideoRecordingParams = {
 abstract class VideoRecording {
   canvas: HTMLCanvasElement;
   fps: number;
-  startTime: Seconds;
-  startFrame: number | null = null;
+  firstFrame: number | null = null;
   lastCapturedFrame: number | null = null;
   format: OutputFormat;
   codec: VideoCodec;
@@ -364,7 +357,6 @@ abstract class VideoRecording {
 
   constructor(params: VideoRecordingParams) {
     this.canvas = params.canvas;
-    this.startTime = params.startTime;
     // this.duration = params.duration;
     this.fps = params.fps;
     this.format = params.format;
@@ -454,15 +446,15 @@ class DeterminsticVideoRecording extends VideoRecording {
   async captureFrame(frame: number) {
     try {
       this.isCapturingFrame = true;
-      if (this.startFrame === null) {
-        this.startFrame = frame;
+      if (this.firstFrame === null) {
+        this.firstFrame = frame;
       }
       await this.canvasSource.add(
-        this.toTime(frame) - this.toTime(this.startFrame),
+        this.toTime(frame) - this.toTime(this.firstFrame),
         this.toTime(1) // time of 1 frame
       );
       this.lastCapturedFrame = frame;
-      if (this.toTime(frame - this.startFrame + 1) >= this.duration) {
+      if (this.toTime(frame - this.firstFrame + 1) >= this.duration) {
         await this.stop();
       }
     } catch (err) {
@@ -488,17 +480,17 @@ class RealtimeVideoRecording extends VideoRecording {
   async captureFrame(frame: number) {
     try {
       this.isCapturingFrame = true;
-      if (this.startFrame === null) {
-        this.startFrame = frame;
+      if (this.firstFrame === null) {
+        this.firstFrame = frame;
       }
       await this.canvasSource.add(
-        this.toTime(frame) - this.toTime(this.startFrame),
+        this.toTime(frame) - this.toTime(this.firstFrame),
         this.toTime(1) // time of 1 frame
       );
       this.lastCapturedFrame = frame;
       if (
         this.duration !== null &&
-        this.toTime(frame - this.startFrame + 1) >= this.duration
+        this.toTime(frame - this.firstFrame + 1) >= this.duration
       ) {
         await this.stop();
       }

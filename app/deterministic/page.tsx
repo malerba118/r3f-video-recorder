@@ -14,6 +14,7 @@ import { observer } from "mobx-react";
 import { Slider } from "../../components/ui/slider";
 import { autorun, reaction, when } from "mobx";
 import FileSaver from "file-saver";
+import { formatTime } from "@/lib/utils";
 
 function RotatingCube() {
   const canvas = useVideoCanvas();
@@ -74,8 +75,8 @@ const Page = observer(() => {
         <div className="h-24 flex flex-col justify-center gap-3">
           {videoCanvas && (
             <>
-              <div className="flex items-center gap-3">
-                <p className="tabular-nums">
+              <div className="flex items-center gap-4">
+                <p className="tabular-nums text-sm">
                   {videoCanvas.frame} / {maxFrames}
                 </p>
                 <div className="flex-1" />
@@ -100,13 +101,17 @@ const Page = observer(() => {
                   Record
                 </Button>
               </div>
-              <Slider
-                value={[videoCanvas.frame]}
-                onValueChange={([frame]) => videoCanvas.setFrame(frame)}
-                min={0}
-                max={maxFrames}
-                step={1}
-              />
+              <div className="flex gap-3 items-center text-xs tabular-nums">
+                <span>{formatTime(videoCanvas.time)}</span>
+                <Slider
+                  value={[videoCanvas.frame]}
+                  onValueChange={([frame]) => videoCanvas.setFrame(frame)}
+                  min={0}
+                  max={maxFrames}
+                  step={1}
+                />
+                <span>{formatTime(maxDuration)}</span>
+              </div>
             </>
           )}
         </div>
