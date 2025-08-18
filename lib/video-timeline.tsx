@@ -151,10 +151,11 @@ const VideoCanvasInner = forwardRef<
 
   useFrame(({ gl, scene, camera, size }) => {
     gl.setSize(even(size.width), even(size.height), false);
+    gl.render(scene, camera);
     if (
       videoCanvas.recording instanceof DeterminsticVideoRecording &&
       videoCanvas.recording.status === VideoRecordingStatus.ReadyForFrames &&
-      videoCanvas.recording.lastCapturedFrame < videoCanvas.frame &&
+      (videoCanvas.recording.lastCapturedFrame ?? -1) < videoCanvas.frame &&
       !videoCanvas.recording.isCapturingFrame
     ) {
       videoCanvas.recording.captureFrame(videoCanvas.frame).then(() => {
@@ -163,12 +164,11 @@ const VideoCanvasInner = forwardRef<
     } else if (
       videoCanvas.recording instanceof RealtimeVideoRecording &&
       videoCanvas.recording.status === VideoRecordingStatus.ReadyForFrames &&
-      videoCanvas.recording.lastCapturedFrame < videoCanvas.frame &&
+      (videoCanvas.recording.lastCapturedFrame ?? -1) < videoCanvas.frame &&
       !videoCanvas.recording.isCapturingFrame
     ) {
       videoCanvas.recording.captureFrame(videoCanvas.frame);
     }
-    gl.render(scene, camera);
   }, 1);
 
   return (
@@ -350,7 +350,8 @@ abstract class VideoRecording {
   canvas: HTMLCanvasElement;
   fps: number;
   startTime: Seconds;
-  lastCapturedFrame: number = -1;
+  startFrame: number | null = null;
+  lastCapturedFrame: number | null = null;
   format: OutputFormat;
   codec: VideoCodec;
   output: Output;
@@ -405,10 +406,6 @@ abstract class VideoRecording {
     return frame / this.fps;
   }
 
-  protected get startFrame() {
-    return this.toFrame(this.startTime);
-  }
-
   abstract captureFrame(frame: number): Promise<void>;
 
   protected setStatus(status: VideoRecordingStatus) {
@@ -457,12 +454,15 @@ class DeterminsticVideoRecording extends VideoRecording {
   async captureFrame(frame: number) {
     try {
       this.isCapturingFrame = true;
+      if (this.startFrame === null) {
+        this.startFrame = frame;
+      }
       await this.canvasSource.add(
         this.toTime(frame) - this.toTime(this.startFrame),
         this.toTime(1) // time of 1 frame
       );
       this.lastCapturedFrame = frame;
-      if (this.toTime(frame - this.startFrame) >= this.duration) {
+      if (this.toTime(frame - this.startFrame + 1) >= this.duration) {
         await this.stop();
       }
     } catch (err) {
@@ -488,6 +488,9 @@ class RealtimeVideoRecording extends VideoRecording {
   async captureFrame(frame: number) {
     try {
       this.isCapturingFrame = true;
+      if (this.startFrame === null) {
+        this.startFrame = frame;
+      }
       await this.canvasSource.add(
         this.toTime(frame) - this.toTime(this.startFrame),
         this.toTime(1) // time of 1 frame
@@ -495,7 +498,7 @@ class RealtimeVideoRecording extends VideoRecording {
       this.lastCapturedFrame = frame;
       if (
         this.duration !== null &&
-        this.toTime(frame - this.startFrame) >= this.duration
+        this.toTime(frame - this.startFrame + 1) >= this.duration
       ) {
         await this.stop();
       }
