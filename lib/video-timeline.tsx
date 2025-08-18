@@ -161,7 +161,7 @@ const VideoCanvasInner = forwardRef<
 });
 
 type DeterministicRecordParams = {
-  type: "deterministic";
+  mode: "deterministic";
   duration: Seconds;
   format?: OutputFormat;
   codec?: VideoCodec;
@@ -169,7 +169,7 @@ type DeterministicRecordParams = {
 };
 
 type RealtimeRecordParams = {
-  type: "realtime";
+  mode: "realtime";
   duration?: Seconds;
   format?: OutputFormat;
   codec?: VideoCodec;
@@ -255,7 +255,7 @@ export class VideoCanvasManager {
   });
 
   record({
-    type,
+    mode,
     duration,
     format = new Mp4OutputFormat(),
     codec = "avc",
@@ -264,7 +264,7 @@ export class VideoCanvasManager {
     return new Promise<Blob>(async (resolve, reject) => {
       const initialPixelRatio = this.gl.getPixelRatio();
       this.gl.setPixelRatio(initialPixelRatio * SCALES[scale]);
-      if (type === "deterministic") {
+      if (mode === "deterministic") {
         this.pause();
         this.recording = new DeterminsticVideoRecording({
           canvas: this.gl.domElement,

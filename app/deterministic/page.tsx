@@ -69,8 +69,8 @@ const Page = observer(() => {
           Deterministic
         </Link>
       </div>
-      <div className="flex-1 py-24">
-        <div className="flex flex-col gap-4 w-[50vw] mx-auto">
+      <div className="flex-1 py-24 px-4">
+        <div className="flex flex-col gap-4 w-full md:w-[50vw] mx-auto">
           <div className="flex justify-end h-4">
             {videoCanvas && (
               <span className="tabular-nums text-sm">
@@ -79,7 +79,7 @@ const Page = observer(() => {
               </span>
             )}
           </div>
-          <div className="h-[50vh] w-[50vw] bg-black">
+          <div className="h-[50vh] w-full bg-black">
             <VideoCanvas
               fps={12}
               onCreated={({ videoCanvas }) => {
@@ -94,7 +94,7 @@ const Page = observer(() => {
           </div>
           {videoCanvas && (
             <>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <FpsSelector
                   value={videoCanvas.fps}
                   onValueChange={(fps) => videoCanvas.setFps(fps)}
@@ -109,7 +109,7 @@ const Page = observer(() => {
                   onClick={() => {
                     videoCanvas
                       ?.record({
-                        type: "deterministic",
+                        mode: "deterministic",
                         duration: Math.min(
                           recordingDuration,
                           maxDuration - videoCanvas.time
@@ -123,9 +123,9 @@ const Page = observer(() => {
                 >
                   Record
                 </Button>
-                for
+                <span className="hidden md:block">for</span>
                 <DurationSelector
-                  className="w-20"
+                  className="w-20 hidden md:flex"
                   value={recordingDuration}
                   onValueChange={setRecordingDuration}
                 />

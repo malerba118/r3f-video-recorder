@@ -53,10 +53,10 @@ const Page = observer(() => {
           Deterministic
         </Link>
       </div>
-      <div className="flex-1 py-24">
-        <div className="flex flex-col gap-4 w-[50vw] mx-auto">
+      <div className="flex-1 py-24 px-4">
+        <div className="flex flex-col gap-4  w-full md:w-[50vw] mx-auto">
           <div className="h-4" />
-          <div className="h-[50vh] w-[50vw] bg-black">
+          <div className="h-[50vh] w-full bg-black">
             <VideoCanvas
               fps={60}
               onCreated={({ videoCanvas }) => {
@@ -89,7 +89,7 @@ const Page = observer(() => {
                     onClick={() => {
                       videoCanvas
                         ?.record({
-                          type: "realtime",
+                          mode: "realtime",
                           scale: "2x",
                         })
                         .then((blob) => FileSaver.saveAs(blob, "video.mp4"))
