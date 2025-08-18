@@ -14,6 +14,7 @@ import { observer } from "mobx-react";
 import { Slider } from "../../components/ui/slider";
 import { autorun, reaction, when } from "mobx";
 import FileSaver from "file-saver";
+import { toast } from "sonner";
 
 function RotatingCube() {
   const canvas = useVideoCanvas();
@@ -79,9 +80,7 @@ const Page = observer(() => {
                           type: "realtime",
                         })
                         .then((blob) => FileSaver.saveAs(blob, "video.mp4"))
-                        .catch((err) =>
-                          console.log("ERRRRRRRRORR", err?.message)
-                        );
+                        .catch((err) => toast.error(err?.message));
                     }}
                   >
                     Record

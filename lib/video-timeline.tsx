@@ -384,25 +384,6 @@ abstract class VideoRecording {
     return this.toFrame(this.startTime);
   }
 
-  // async captureFrame(frame: number) {
-  //   try {
-  //     this.isCapturingFrame = true;
-  //     await this.canvasSource.add(
-  //       this.toTime(frame) - this.toTime(this.startFrame),
-  //       this.toTime(1) // time of 1 frame
-  //     );
-  //     this.lastCapturedFrame = frame;
-  //     this.frameCount += 1;
-  //     if (this.frameCount >= this.toFrame(this.duration)) {
-  //       await this.stop();
-  //     }
-  //   } catch (err) {
-  //     await this.cancel(err);
-  //   } finally {
-  //     this.isCapturingFrame = false;
-  //   }
-  // }
-
   abstract captureFrame(frame: number): Promise<void>;
 
   protected setStatus(status: VideoRecordingStatus) {
