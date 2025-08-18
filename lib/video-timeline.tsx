@@ -136,7 +136,7 @@ const VideoCanvasInner = forwardRef<
 
   useFrame(({ gl, scene, camera }) => {
     if (
-      videoCanvas.recording &&
+      videoCanvas.recording instanceof DeterminsticVideoRecording &&
       videoCanvas.recording.status === VideoRecordingStatus.ReadyForFrames &&
       videoCanvas.recording.lastCapturedFrame < videoCanvas.frame &&
       !videoCanvas.recording.isCapturingFrame
@@ -144,6 +144,13 @@ const VideoCanvasInner = forwardRef<
       videoCanvas.recording.captureFrame(videoCanvas.frame).then(() => {
         videoCanvas.setFrame(videoCanvas.frame + 1);
       });
+    } else if (
+      videoCanvas.recording instanceof RealtimeVideoRecording &&
+      videoCanvas.recording.status === VideoRecordingStatus.ReadyForFrames &&
+      videoCanvas.recording.lastCapturedFrame < videoCanvas.frame &&
+      !videoCanvas.recording.isCapturingFrame
+    ) {
+      videoCanvas.recording.captureFrame(videoCanvas.frame);
     }
     gl.render(scene, camera);
   }, 1);
@@ -232,7 +239,7 @@ export class VideoCanvasManager {
     type,
     duration,
     startTime = this.time,
-    format = new Mp4OutputFormat(),
+    format = new Mp4OutputFormat({ fastStart: "in-memory" }),
     codec = "avc",
   }: {
     type: "realtime" | "deterministic";
@@ -241,7 +248,7 @@ export class VideoCanvasManager {
     format?: OutputFormat;
     codec?: VideoCodec;
   }) {
-    return new Promise<Blob>(async (resolver, rejecter) => {
+    return new Promise<Blob>(async (resolve, reject) => {
       if (type === "deterministic") {
         this.pause();
         this.recording = new DeterminsticVideoRecording({
@@ -251,8 +258,14 @@ export class VideoCanvasManager {
           startTime,
           format,
           codec,
-          onDone: resolver,
-          onError: rejecter,
+          onDone: (blob) => {
+            this.pause();
+            resolve(blob);
+          },
+          onError: (err) => {
+            this.pause();
+            reject(err);
+          },
         });
       } else {
         this.play();
@@ -263,8 +276,14 @@ export class VideoCanvasManager {
           startTime,
           format,
           codec,
-          onDone: resolver,
-          onError: rejecter,
+          onDone: (blob) => {
+            this.pause();
+            resolve(blob);
+          },
+          onError: (err) => {
+            this.pause();
+            reject(err);
+          },
         });
       }
     });
