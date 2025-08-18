@@ -16,7 +16,7 @@ import { autorun, reaction, when } from "mobx";
 import FileSaver from "file-saver";
 import { formatTime } from "@/lib/utils";
 import Link from "next/link";
-import { FpsSelector } from "../controls";
+import { DurationSelector, FpsSelector } from "../controls";
 
 function RotatingCube() {
   const canvas = useVideoCanvas();
@@ -43,6 +43,7 @@ const Page = observer(() => {
   const [videoCanvas, setVideoCanvas] = useState<VideoCanvasManager | null>(
     null
   );
+  const [recordingDuration, setRecordingDuration] = useState(5);
 
   useEffect(() => {
     if (videoCanvas) {
@@ -109,7 +110,10 @@ const Page = observer(() => {
                     videoCanvas
                       ?.record({
                         type: "deterministic",
-                        duration: Math.min(10, maxDuration - videoCanvas.time),
+                        duration: Math.min(
+                          recordingDuration,
+                          maxDuration - videoCanvas.time
+                        ),
                       })
                       .then((blob) => FileSaver.saveAs(blob, "video.mp4"))
                       .catch((err) =>
@@ -119,6 +123,12 @@ const Page = observer(() => {
                 >
                   Record
                 </Button>
+                for
+                <DurationSelector
+                  className="w-20"
+                  value={recordingDuration}
+                  onValueChange={setRecordingDuration}
+                />
               </div>
               <div className="flex gap-3 items-center text-xs tabular-nums">
                 <span>{formatTime(videoCanvas.time)}</span>

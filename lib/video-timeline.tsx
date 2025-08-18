@@ -366,7 +366,7 @@ abstract class VideoRecording {
         this.setStatus(VideoRecordingStatus.ReadyForFrames);
       })
       .catch((e) => {
-        this.cancel(e || new Error("Unable to initialize recording"));
+        this._cancel(e || new Error("Unable to initialize recording"));
       });
 
     makeObservable(this, {
@@ -402,11 +402,13 @@ abstract class VideoRecording {
       });
       this.onDone(blob);
     } catch (err) {
-      this.cancel(err);
+      this._cancel(err);
     }
   };
 
-  cancel = async (err: unknown = new Error("Recording canceled")) => {
+  protected _cancel = async (
+    err: unknown = new Error("Recording canceled")
+  ) => {
     try {
       this.setStatus(VideoRecordingStatus.Canceling);
       this.canvasSource.close();
@@ -415,6 +417,10 @@ abstract class VideoRecording {
     } catch (err) {
       this.onError(err);
     }
+  };
+
+  cancel = async () => {
+    this._cancel(new Error("Recording canceled"));
   };
 }
 
@@ -445,7 +451,7 @@ class DeterminsticVideoRecording extends VideoRecording {
         await this.stop();
       }
     } catch (err) {
-      await this.cancel(err);
+      await this._cancel(err);
     } finally {
       this.isCapturingFrame = false;
     }
@@ -482,7 +488,7 @@ class RealtimeVideoRecording extends VideoRecording {
         await this.stop();
       }
     } catch (err) {
-      await this.cancel(err);
+      await this._cancel(err);
     } finally {
       this.isCapturingFrame = false;
     }
