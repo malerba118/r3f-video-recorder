@@ -5,7 +5,7 @@ import {
   Output,
   Mp4OutputFormat,
   BufferTarget,
-  QUALITY_MEDIUM,
+  QUALITY_HIGH,
   OutputFormat,
   VideoCodec,
 } from "mediabunny";
@@ -28,10 +28,11 @@ import {
   useFrame,
   useThree,
 } from "@react-three/fiber";
-import { WebGLRenderer } from "three";
+import { Vector2, WebGLRenderer } from "three";
 import { action, makeObservable, observable, runInAction } from "mobx";
 
 type Seconds = number;
+type ScalePreset = "1x" | "2x" | "3x" | "4x";
 
 const EPSILON = 1e-7;
 
@@ -43,6 +44,13 @@ function even(n: number) {
   const rounded = Math.round(n);
   return rounded & 1 ? rounded + 1 : rounded; // next even
 }
+
+const SCALES: Record<ScalePreset, number> = {
+  "1x": 1,
+  "2x": 2,
+  "3x": 3,
+  "4x": 4,
+};
 
 const VideoCanvasContext = createContext<VideoCanvasManager | null>(null);
 
@@ -64,33 +72,34 @@ interface VideoCanvasProps extends Omit<CanvasProps, "onCreated"> {
 
 export const VideoCanvas = forwardRef<HTMLCanvasElement, VideoCanvasProps>(
   ({ fps, onCreated, children, ...otherProps }, ref) => {
+    const stateRef = useRef<RootState>(null);
     const videoCanvasRef = useRef<VideoCanvasManager>(null);
+
+    const maybeNotifyCreated = () => {
+      if (stateRef.current && videoCanvasRef.current)
+        onCreated?.({
+          ...stateRef.current,
+          videoCanvas: videoCanvasRef.current,
+        });
+    };
+
     return (
       <Canvas
         {...otherProps}
         ref={ref}
         gl={{ preserveDrawingBuffer: true }}
         onCreated={(state) => {
-          onCreated?.({
-            ...state,
-            videoCanvas: videoCanvasRef.current!,
-          });
+          stateRef.current = state;
+          maybeNotifyCreated();
         }}
-        // onCreated={(state) => {
-        //   // h264 encoding requires that resolution width & height are even numbers.
-        //   // Here we monkey patch the WebGLRenderer setSize function to ensure renderer
-        //   // dimensions will always be even numbers.
-        //   // @ts-ignore
-        //   state.gl.originalSetSize = state.gl.setSize;
-        //   state.gl.setSize = function (width, height, updateStyle = true) {
-        //     // @ts-ignore
-        //     state.gl.originalSetSize(even(width), even(height), updateStyle);
-        //   };
-        //   state.gl.setSize(state.size.width, state.size.height, false);
-        //   otherProps.onCreated?.(state);
-        // }}
       >
-        <VideoCanvasInner ref={videoCanvasRef} fps={fps}>
+        <VideoCanvasInner
+          ref={(videoCanvas) => {
+            videoCanvasRef.current = videoCanvas;
+            maybeNotifyCreated();
+          }}
+          fps={fps}
+        >
           {children}
         </VideoCanvasInner>
       </Canvas>
@@ -121,20 +130,27 @@ const VideoCanvasInner = forwardRef<
   // h264 encoding requires that resolution width & height are even numbers.
   // Here we monkey patch the WebGLRenderer setSize function to ensure renderer
   // dimensions will always be even numbers.
-  useLayoutEffect(() => {
-    // @ts-ignore
-    gl.originalSetSize = gl.setSize;
-    gl.setSize = function (width: number, height: number, updateStyle = true) {
-      // @ts-ignore
-      gl.originalSetSize(even(width), even(height), updateStyle);
-    };
-  }, [gl]);
+  // useLayoutEffect(() => {
+  //   // @ts-ignore
+  //   gl.__originalSetSize = gl.setSize;
+  //   gl.setSize = function (width: number, height: number, updateStyle = true) {
+  //     console.log(width, height);
+  //     width = even(width);
+  //     height = even(height);
+  //     const size = gl.getSize(new Vector2());
+  //     if (size.x !== width || size.y !== height) {
+  //       // @ts-ignore
+  //       gl.__originalSetSize(width, height, updateStyle);
+  //     }
+  //   };
+  // }, [gl]);
 
-  useLayoutEffect(() => {
-    gl.setSize(size.width, size.height, false);
-  }, [gl, size.width, size.height]);
+  // useLayoutEffect(() => {
+  //   gl.setSize(even(size.width), even(size.height), false);
+  // }, [gl, size.width, size.height]);
 
-  useFrame(({ gl, scene, camera }) => {
+  useFrame(({ gl, scene, camera, size }) => {
+    gl.setSize(even(size.width), even(size.height), false);
     if (
       videoCanvas.recording instanceof DeterminsticVideoRecording &&
       videoCanvas.recording.status === VideoRecordingStatus.ReadyForFrames &&
@@ -168,6 +184,7 @@ type DeterministicRecordParams = {
   startTime?: Seconds;
   format?: OutputFormat;
   codec?: VideoCodec;
+  scale?: ScalePreset;
 };
 
 type RealtimeRecordParams = {
@@ -176,6 +193,7 @@ type RealtimeRecordParams = {
   startTime?: Seconds;
   format?: OutputFormat;
   codec?: VideoCodec;
+  scale?: ScalePreset;
 };
 
 export class VideoCanvasManager {
@@ -255,10 +273,13 @@ export class VideoCanvasManager {
     type,
     duration,
     startTime = this.time,
-    format = new Mp4OutputFormat({ fastStart: "in-memory" }),
+    format = new Mp4OutputFormat(),
     codec = "avc",
+    scale = "1x",
   }: DeterministicRecordParams | RealtimeRecordParams) {
     return new Promise<Blob>(async (resolve, reject) => {
+      const initialPixelRatio = this.gl.getPixelRatio();
+      this.gl.setPixelRatio(initialPixelRatio * SCALES[scale]);
       if (type === "deterministic") {
         this.pause();
         this.recording = new DeterminsticVideoRecording({
@@ -272,11 +293,13 @@ export class VideoCanvasManager {
             this.pause();
             resolve(blob);
             this.recording = null;
+            this.gl.setPixelRatio(initialPixelRatio);
           },
           onError: (err) => {
             this.pause();
             reject(err);
             this.recording = null;
+            this.gl.setPixelRatio(initialPixelRatio);
           },
         });
       } else {
@@ -292,11 +315,13 @@ export class VideoCanvasManager {
             this.pause();
             resolve(blob);
             this.recording = null;
+            this.gl.setPixelRatio(initialPixelRatio);
           },
           onError: (err) => {
             this.pause();
             reject(err);
             this.recording = null;
+            this.gl.setPixelRatio(initialPixelRatio);
           },
         });
       }
@@ -352,7 +377,7 @@ abstract class VideoRecording {
     });
     this.canvasSource = new CanvasSource(this.canvas, {
       codec: params.codec,
-      bitrate: QUALITY_MEDIUM,
+      bitrate: QUALITY_HIGH,
     });
     this.output.addVideoTrack(this.canvasSource, { frameRate: this.fps });
     this.output

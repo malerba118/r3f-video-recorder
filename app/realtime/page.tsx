@@ -15,6 +15,8 @@ import { Slider } from "../../components/ui/slider";
 import { autorun, reaction, when } from "mobx";
 import FileSaver from "file-saver";
 import { toast } from "sonner";
+import Link from "next/link";
+import { CarouselScene } from "../scenes/carousel";
 
 function RotatingCube() {
   const canvas = useVideoCanvas();
@@ -23,8 +25,8 @@ function RotatingCube() {
   useFrame(({ clock }) => {
     if (!meshRef.current) return;
     // Rotate the cube based on videoCanvas.time
-    meshRef.current.rotation.x = clock.elapsedTime;
-    meshRef.current.rotation.y = clock.elapsedTime * 0.7;
+    meshRef.current.rotation.x = canvas.time;
+    meshRef.current.rotation.y = canvas.time * 0.7;
   });
 
   return (
@@ -36,66 +38,70 @@ function RotatingCube() {
 }
 
 const Page = observer(() => {
-  // const videoCanvasRef = useRef<VideoCanvasManager>(null);
-  const fps = 60;
-  // const maxDuration = 30;
-  // const maxFrames = maxDuration * fps;
   const [videoCanvas, setVideoCanvas] = useState<VideoCanvasManager | null>(
     null
   );
 
   return (
-    <div className="w-screen h-screen bg-white flex flex-col items-center justify-center">
-      <div className="h-1/2 w-1/2 bg-black">
-        <VideoCanvas
-          fps={fps}
-          onCreated={({ videoCanvas }) => {
-            setVideoCanvas(videoCanvas);
-          }}
-        >
-          <color attach="background" args={["black"]} />
-          <ambientLight intensity={0.5} />
-          <directionalLight position={[10, 10, 5]} intensity={1} />
-          <RotatingCube />
-        </VideoCanvas>
-        <div className="h-24 flex flex-col justify-center gap-3">
-          {videoCanvas && (
-            <>
-              <div className="flex items-center gap-3">
-                <div className="flex-1" />
-                {videoCanvas.recording ? (
-                  <>
-                    <Button onClick={() => videoCanvas.recording?.cancel()}>
-                      Cancel
+    <div className="flex flex-col h-[100dvh]">
+      <div className="p-4 flex gap-4">
+        <Link href="/realtime" className="text-gray-950">
+          Realtime
+        </Link>
+        <Link href="/deterministic" className="text-gray-400">
+          Deterministic
+        </Link>
+      </div>
+      <div className="flex-1 py-24">
+        <div className="flex flex-col gap-4 w-[50vw] mx-auto">
+          <div className="h-[50vh] w-[50vw] bg-black">
+            <VideoCanvas
+              fps={60}
+              onCreated={({ videoCanvas }) => {
+                setVideoCanvas(videoCanvas);
+              }}
+              camera={{ position: [0, 0, 100], fov: 15 }}
+            >
+              {/* <color attach="background" args={["black"]} />
+              <ambientLight intensity={0.5} />
+              <directionalLight position={[10, 10, 5]} intensity={1} />
+              <RotatingCube /> */}
+              <CarouselScene />
+            </VideoCanvas>
+          </div>
+          <div className="flex flex-col justify-center gap-3">
+            {videoCanvas && (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1" />
+                  {videoCanvas.recording ? (
+                    <>
+                      <Button onClick={() => videoCanvas.recording?.cancel()}>
+                        Cancel
+                      </Button>
+                      <Button onClick={() => videoCanvas.recording?.stop()}>
+                        Stop
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      onClick={() => {
+                        videoCanvas
+                          ?.record({
+                            type: "realtime",
+                            scale: "2x",
+                          })
+                          .then((blob) => FileSaver.saveAs(blob, "video.mp4"))
+                          .catch((err) => toast.error(err?.message));
+                      }}
+                    >
+                      Record
                     </Button>
-                    <Button onClick={() => videoCanvas.recording?.stop()}>
-                      Stop
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    onClick={() => {
-                      videoCanvas
-                        ?.record({
-                          type: "realtime",
-                        })
-                        .then((blob) => FileSaver.saveAs(blob, "video.mp4"))
-                        .catch((err) => toast.error(err?.message));
-                    }}
-                  >
-                    Record
-                  </Button>
-                )}
-              </div>
-              {/* <Slider
-                value={[videoCanvas.frame]}
-                onValueChange={([frame]) => videoCanvas.setFrame(frame)}
-                min={0}
-                max={maxFrames}
-                step={1}
-              /> */}
-            </>
-          )}
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
