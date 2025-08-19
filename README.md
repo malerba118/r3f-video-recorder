@@ -229,7 +229,7 @@ const ClockSync = () => {
     clock.stop();
   }, [clock]);
 
-  useFrame(({ clock }) => {
+  useFrame(() => {
     clock.elapsedTime = videoCanvas.time;
   });
 
