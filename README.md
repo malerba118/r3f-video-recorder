@@ -137,20 +137,42 @@ const App = observer(() => {
 });
 ```
 
-## Frame-accurate Rendering
+## Frame-Accurate Rendering
 
-`frame-accurate` is more robust than realtime rendering since it hijacks `videoCanvas.time` and ticks through frame-by-frame, only moving on to render the next frame once the previous frame has been captured.
+`frame-accurate` rendering is more robust than `realtime` rendering since it hijacks `videoCanvas.time` and ticks through frame-by-frame, only moving on to render the next frame once the previous frame has been captured.
 
 This is nice because your videos will always be rendered exactly the same regardless of contextual hiccups like low battery power or the user deciding to visit another tab during the recording process.
 
-However, it is imperative when using this mode that your video frames remain a pure function of the current `videoClock.time`. If your video depends on external variables such as the `THREE.clock.elapsedTime`, or `Math.random()` then there will be no guarantee that frame 37 will be rendered identically across two different exports.
+However, it is imperative when using this mode that your video frames are rendered as a pure function of the current `videoClock.time`. If your frames depend on external variables such as the `THREE.clock.elapsedTime`, or `Math.random()` then there's no guarantee that frame 37 will be rendered identically across two different exports.
 
 ```tsx
-import { HIGH_QUALITY } from "mediabunny";
-import FileSaver from "file-saver";
+import { useRef, useState } from "react";
+import { useFrame } from "@react-three/fiber";
+import * as THREE from "three";
 import { observer } from "mobx-react";
-import { VideoCanvas, VideoCanvasManager } from "./r3f-video-recorder";
-import { MyScene } from "./my-scene";
+import {
+  VideoCanvas,
+  VideoCanvasManager,
+  useVideoCanvas,
+} from "./r3f-video-recorder";
+
+function Box() {
+  const videoCanvas = useVideoCanvas();
+  const mesh = useRef<THREE.Mesh>(null);
+
+  useFrame(() => {
+    if (!mesh.current) return;
+    mesh.current.rotation.x = videoCanvas.time * 0.7;
+    mesh.current.rotation.y = videoCanvas.time;
+  });
+
+  return (
+    <mesh ref={mesh}>
+      <boxGeometry args={[2, 2, 2]} />
+      <meshStandardMaterial color="cyan" />
+    </mesh>
+  );
+}
 
 const App = observer(() => {
   const [videoCanvas, setVideoCanvas] = useState<VideoCanvasManager | null>(
@@ -160,135 +182,61 @@ const App = observer(() => {
   return (
     <main className="h-screen">
       {videoCanvas && (
-        <div className="fixed top-4 right-4 flex gap-3">
-          {!videoCanvas.recording && (
-            <Button
-              onClick={() => {
-                videoCanvas
-                  .record({
-                    mode: "realtime",
-                    size: "2x",
-                  })
-                  .then((blob) => {
-                    FileSaver.saveAs(blob, "video.mp4");
-                  });
-              }}
-            >
-              Record
-            </Button>
-          )}
-          {videoCanvas.recording && (
-            <>
-              <Button
-                onClick={() => {
-                  videoCanvas.recording.cancel();
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  videoCanvas.recording.stop();
-                }}
-              >
-                Stop
-              </Button>
-            </>
-          )}
-        </div>
+        <Button
+          className="fixed top-4 right-4"
+          onClick={() => {
+            videoCanvas
+              .record({
+                mode: "frame-accurate",
+                size: "2x",
+                duration: 10,
+              })
+              .then((blob) => {
+                FileSaver.saveAs(blob, "video.mp4");
+              });
+          }}
+        >
+          Record
+        </Button>
       )}
       <VideoCanvas
         fps={60}
-        camera={{ position: [-15, 0, 10], fov: 25 }}
         onCreated={({ videoCanvas }) => {
           setVideoCanvas(videoCanvas);
         }}
       >
-        <MyScene />
+        <ambientLight intensity={0.6} />
+        <Box />
       </VideoCanvas>
     </main>
   );
 });
 ```
 
-```tsx
-import { VideoCanvas, useVideoCanvas } from "r3f-video-recorder";
-import { useRef } from "react";
-import { useFrame } from "@react-three/fiber";
-import * as THREE from "three";
+### Hacky tip
 
-function Box() {
-  const canvas = useVideoCanvas();
-  const mesh = useRef<THREE.Mesh>(null);
-  useFrame(() => {
-    if (!mesh.current) return;
-    mesh.current.rotation.x = canvas.time * 0.7;
-    mesh.current.rotation.y = canvas.time;
+Since many existing r3f scenes are heavily dependent on `clock.elapsedTime`, you can try syncing `clock.elapsedTime` with `videoCanvas.time` somewhere at the top level in a frame loop.
+
+```tsx
+const ClockSync = () => {
+  const videoCanvas = useVideoCanvas();
+  useFrame(({ clock }) => {
+    clock.elapsedTime = videoCanvas.time;
   });
-  return (
-    <mesh ref={mesh}>
-      <boxGeometry args={[2, 2, 2]} />
-      <meshStandardMaterial color="cyan" />
-    </mesh>
-  );
-}
-
-export default function Demo() {
-  return (
-    <div className="h-[60vh]">
-      <VideoCanvas fps={60}>
-        <ambientLight intensity={0.6} />
-        <Box />
-      </VideoCanvas>
-    </div>
-  );
-}
+};
 ```
-
-### Recording
-
-- Realtime (plays and records live):
-
-```tsx
-videoCanvas.record({ mode: "realtime" }).then((blob) => {
-  // save blob
-});
-```
-
-- Frame-accurate (deterministic, no dropped frames):
-
-```tsx
-videoCanvas
-  .record({ mode: "frame-accurate", duration: 5 /* seconds */ })
-  .then((blob) => {
-    // save blob
-  });
-```
-
-Use `file-saver` or a URL download to save:
-
-```ts
-import FileSaver from "file-saver";
-FileSaver.saveAs(blob, "video.mp4");
-```
-
-### Notes
-
-- Use `canvas.time` (and/or `canvas.frame`) to drive your animations so frame-accurate recordings are deterministic.
-- The recorder ensures even canvas dimensions and temporarily scales pixel ratio during recording via the `scale` option.
-- Requires a browser with WebCodecs support (via `mediabunny`).
 
 ## API Reference
 
-### `VideoCanvas`
+### `<VideoCanvas>`
 
-React component that wraps your R3F scene and wires up recording.
+An extension of r3f `<Canvas>` so it can be swapped in place. It includes a couple of additional props.
 
 Props:
 
-- `fps: number` — Target frames per second for time and recording
+- `fps: number` — Target frames per second for video preview and recording
 - `onCreated?: (state: RootState & { videoCanvas: VideoCanvasManager }) => void` — Called when the canvas is ready
-- Accepts all other `@react-three/fiber` `Canvas` props (except `onCreated`)
+- Accepts all other `@react-three/fiber` `Canvas` props
 
 Usage:
 
@@ -308,21 +256,22 @@ Usage:
 Hook to access the active `VideoCanvasManager`. Must be used inside children of `VideoCanvas`.
 
 ```ts
-const canvas = useVideoCanvas();
-canvas.time; // seconds (derived from frame and fps)
-canvas.frame; // integer frame index
+const videoCanvas = useVideoCanvas();
+videoCanvas.time; // seconds (derived from frame and fps)
+videoCanvas.frame; // integer frame index
 ```
 
 ### `VideoCanvasManager`
 
 Provides control over playback and recording.
 
-Properties:
+Properties (all reactive via mobx):
 
-- `fps: number`
-- `time: number` (seconds)
-- `frame: number`
-- `isPlaying: boolean`
+- `fps: number` target framerate
+- `rawTime: number` raw clock time
+- `time: number` frame-aligned clock time
+- `frame: number` current video frame
+- `isPlaying: boolean` current playback state
 - `recording: { stop(): Promise<void>; cancel(): Promise<void>; status: "initializing" | "ready-for-frames" | "finalizing" | "canceling" } | null`
 
 Methods:
@@ -337,7 +286,7 @@ Methods:
 `record(options)`
 
 ```ts
-type ScalePreset = "1x" | "2x" | "3x" | "4x";
+type SizePreset = "1x" | "2x" | "3x" | "4x";
 
 // Deterministic, no dropped frames
 record({
@@ -345,7 +294,7 @@ record({
   duration: number,       // seconds, required
   format?: OutputFormat,  // default: new Mp4OutputFormat()
   codec?: VideoCodec,     // default: "avc"
-  scale?: ScalePreset,    // default: "2x"
+  size?: SizePreset,      // default: "2x"
   quality?: Quality,      // default: QUALITY_HIGH
 }): Promise<Blob>
 
@@ -355,105 +304,13 @@ record({
   duration?: number,      // optional auto-stop
   format?: OutputFormat,
   codec?: VideoCodec,
-  scale?: ScalePreset,
+  size?: SizePreset,
   quality?: Quality,
 }): Promise<Blob>
 ```
 
-Behavior:
-
-- In `frame-accurate` mode, playback is paused and frames are generated deterministically based on `fps` and your scene’s use of `canvas.time`.
-- In `realtime` mode, playback continues while frames are captured; you can call `recording.stop()` or `recording.cancel()`.
-- During recording, the renderer pixel ratio is set to `1 * scale` and restored afterwards. Width/height are coerced to even values for encoder compatibility.
-
 ### Types
 
-- `ScalePreset` — "1x" | "2x" | "3x" | "4x"
+- `SizePreset` — "1x" | "2x" | "3x" | "4x"
 - `Seconds` — alias of `number`
 - `OutputFormat`, `VideoCodec`, `Quality`, `QUALITY_HIGH` — from `mediabunny`
-
-## Examples
-
-### Realtime recording with UI controls
-
-```tsx
-"use client";
-import { useState, useRef } from "react";
-import {
-  VideoCanvas,
-  useVideoCanvas,
-  VideoCanvasManager,
-} from "r3f-video-recorder";
-import FileSaver from "file-saver";
-import { useFrame } from "@react-three/fiber";
-import * as THREE from "three";
-
-function Box() {
-  const canvas = useVideoCanvas();
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame(() => {
-    if (!ref.current) return;
-    ref.current.rotation.x = canvas.time * 0.8;
-    ref.current.rotation.y = canvas.time;
-  });
-  return (
-    <mesh ref={ref}>
-      <boxGeometry args={[2, 2, 2]} />
-      <meshStandardMaterial color="hotpink" />
-    </mesh>
-  );
-}
-
-export default function RealtimeExample() {
-  const [vc, setVc] = useState<VideoCanvasManager | null>(null);
-  return (
-    <>
-      <div className="h-[55vh] bg-gray-50">
-        <VideoCanvas
-          fps={60}
-          onCreated={({ videoCanvas }) => setVc(videoCanvas)}
-        >
-          <ambientLight intensity={0.6} />
-          <Box />
-        </VideoCanvas>
-      </div>
-      <button
-        onClick={() =>
-          vc
-            ?.record({ mode: "realtime" })
-            .then((blob) => FileSaver.saveAs(blob, "video.mp4"))
-        }
-        disabled={!vc || !!vc.recording}
-      >
-        {vc?.recording ? "Recording…" : "Record"}
-      </button>
-    </>
-  );
-}
-```
-
-### Frame-accurate 5s export
-
-```tsx
-vc.record({ mode: "frame-accurate", duration: 5 }).then((blob) =>
-  FileSaver.saveAs(blob, "clip.mp4")
-);
-```
-
-### Custom format/codec/scale/quality
-
-```ts
-import { Mp4OutputFormat, QUALITY_HIGH } from "mediabunny";
-
-vc.record({
-  mode: "realtime",
-  format: new Mp4OutputFormat(),
-  codec: "avc",
-  scale: "2x",
-  quality: QUALITY_HIGH,
-});
-```
-
-### Status
-
-This is experimental and requires browsers with WebCodecs support (used by `mediabunny`).
