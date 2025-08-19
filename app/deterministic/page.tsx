@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import {
-  ScalePreset,
+  SizePreset,
   useVideoCanvas,
   VideoCanvas,
   VideoCanvasManager,
@@ -16,7 +16,7 @@ import { reaction } from "mobx";
 import FileSaver from "file-saver";
 import { formatTime } from "@/components/utils";
 import Link from "next/link";
-import { DurationSelector, FpsSelector, ScaleSelector } from "../controls";
+import { DurationSelector, FpsSelector, SizeSelector } from "../controls";
 import { toast } from "sonner";
 
 function RotatingCube() {
@@ -39,7 +39,7 @@ function RotatingCube() {
 }
 
 const Page = observer(() => {
-  const [scale, setScale] = useState<ScalePreset>("2x");
+  const [size, setSize] = useState<SizePreset>("2x");
   const maxDuration = 30;
   const [videoCanvas, setVideoCanvas] = useState<VideoCanvasManager | null>(
     null
@@ -69,7 +69,7 @@ const Page = observer(() => {
               Realtime
             </Link>
             <Link href="/deterministic" className="text-gray-950">
-              Deterministic
+              FrameAccurate
             </Link>
           </div>
           <div className="flex-1" />
@@ -99,10 +99,10 @@ const Page = observer(() => {
                 value={videoCanvas.fps}
                 onValueChange={(fps) => videoCanvas.setFps(fps)}
               />
-              <ScaleSelector
+              <SizeSelector
                 className="hidden lg:flex"
-                value={scale}
-                onValueChange={setScale}
+                value={size}
+                onValueChange={setSize}
               />
               <div className="flex-1" />
               {videoCanvas.isPlaying ? (
@@ -119,6 +119,7 @@ const Page = observer(() => {
                         recordingDuration,
                         maxDuration - videoCanvas.time
                       ),
+                      size,
                     })
                     .then((blob) => FileSaver.saveAs(blob, "video.mp4"))
                     .catch((err) => toast(err?.message));

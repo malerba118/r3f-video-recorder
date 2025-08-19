@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ScalePreset } from "@/r3f-video-recorder";
+import { SizePreset } from "@/r3f-video-recorder";
 
 type FpsSelectorProps = {
   value: number;
@@ -78,26 +78,23 @@ export function DurationSelector({
   );
 }
 
-type ScaleSelectorProps = {
-  value: ScalePreset;
-  onValueChange: (scale: ScalePreset) => void;
-  options?: ScalePreset[];
+type SizeSelectorProps = {
+  value: SizePreset;
+  onValueChange: (size: SizePreset) => void;
+  options?: SizePreset[];
   disabled?: boolean;
   className?: string;
 };
 
-export function ScaleSelector({
+export function SizeSelector({
   value,
   onValueChange,
   options = ["1x", "2x", "3x", "4x"],
   disabled,
   className,
-}: ScaleSelectorProps) {
+}: SizeSelectorProps) {
   return (
-    <Select
-      value={value}
-      onValueChange={(v) => onValueChange(v as ScalePreset)}
-    >
+    <Select value={value} onValueChange={(v) => onValueChange(v as SizePreset)}>
       <SelectTrigger className={className} disabled={disabled}>
         <SelectValue placeholder="Duration" />
       </SelectTrigger>

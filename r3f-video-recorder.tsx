@@ -33,7 +33,7 @@ import { Vector2, WebGLRenderer } from "three";
 import { action, makeObservable, observable, runInAction } from "mobx";
 
 export type Seconds = number;
-export type ScalePreset = "1x" | "2x" | "3x" | "4x";
+export type SizePreset = "1x" | "2x" | "3x" | "4x";
 
 const EPSILON = 1e-7;
 
@@ -46,7 +46,7 @@ function even(n: number) {
   return rounded & 1 ? rounded + 1 : rounded; // next even
 }
 
-const SCALES: Record<ScalePreset, number> = {
+const SCALES: Record<SizePreset, number> = {
   "1x": 1,
   "2x": 2,
   "3x": 3,
@@ -166,7 +166,7 @@ interface BaseRecordParams {
   duration?: Seconds;
   format?: OutputFormat;
   codec?: VideoCodec;
-  scale?: ScalePreset;
+  size?: SizePreset;
   quality?: Quality;
 }
 
@@ -263,12 +263,12 @@ export class VideoCanvasManager {
     duration,
     format = new Mp4OutputFormat(),
     codec = "avc",
-    scale = "2x",
+    size = "2x",
     quality = QUALITY_HIGH,
   }: FrameAccurateRecordParams | RealtimeRecordParams) {
     return new Promise<Blob>(async (resolve, reject) => {
       const initialPixelRatio = this.gl.getPixelRatio();
-      this.gl.setPixelRatio(1 * SCALES[scale]);
+      this.gl.setPixelRatio(1 * SCALES[size]);
       if (mode === "frame-accurate") {
         this.pause();
         this.recording = new FrameAccurateVideoRecording({
