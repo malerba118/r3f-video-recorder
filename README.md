@@ -2,16 +2,16 @@
 
 This is a video recording framework built on @react-three/fiber and mediabunny which supports both realtime canvas capture as well as frame-accurate video rendering.
 
-Rendering videos reliably across all browsers is quite difficult but this library offers a nice set of features including:
+Rendering videos reliably across all browsers is quite difficult but this library offers a nice set of guarantees including:
 
-- Render to mp4/h264 in all browsers
+- Render to `mp4/h264` in all browsers.
 - A frame-aligned clock so your video preview can appear consistent with your rendered export.
 - Fast rendering times while in `frame-accurate` recording mode (eg 10s to render 60s video).
-- Adjustable `fps`, `size`, `quality`, `format`, `codec`
+- Adjustable `fps`, `size`, `quality`, `format`, `codec`.
 
 ### Installation
 
-I'm lazy and don't feel like turning this into an official npm package. I also know i will suck at keeping it up to date so i'm going with shadcn-stlye installation on this one and you're going to have to copy/pasta the contents of [r3f-video-recorder.tsx](/r3f-video-recorder.tsx) into your project.
+I'm going with shadcn-stlye installation on this one so you're going to have to copy/pasta the contents of [r3f-video-recorder.tsx](/r3f-video-recorder.tsx) into your project. (I'm lazy and don't feel like turning this into an official npm package. I also know i will suck at keeping an npm package up-to-date so i think this is the best way atm).
 
 You'll also need to install peers:
 
@@ -65,7 +65,7 @@ export default function Page() {
 }
 ```
 
-### Realtime Rendering
+## Realtime Rendering
 
 `realtime` rendering mode will capture frames from the canvas in real time. This means if you want a two minute video, you'll have to sit there recording for two minutes. This is a good option when you want to capture a user interacting with a scene.
 
@@ -137,16 +137,81 @@ const App = observer(() => {
 });
 ```
 
-If you have not set up R3F, see the R3F docs first.
+## Frame-accurate Rendering
 
-### Minimal usage
+`frame-accurate` is more robust than realtime rendering since it hijacks `videoCanvas.time` and ticks through frame-by-frame, only moving on to render the next frame once the previous frame has been captured.
 
-1. Wrap your scene with `VideoCanvas` and set a target `fps`.
+This is nice because your videos will always be rendered exactly the same regardless of contextual hiccups like low battery power or the user deciding to visit another tab during the recording process.
 
-2. Inside your scene components, use `useVideoCanvas()` to access the `VideoCanvasManager`. Drive animation using `canvas.time` to make it deterministic.
+However, it is imperative when using this mode that your video frames remain a pure function of the current `videoClock.time`. If your video depends on external variables such as the `THREE.clock.elapsedTime`, or `Math.random()` then there will be no guarantee that frame 37 will be rendered identically across two different exports.
 
 ```tsx
-"use client";
+import { HIGH_QUALITY } from "mediabunny";
+import FileSaver from "file-saver";
+import { observer } from "mobx-react";
+import { VideoCanvas, VideoCanvasManager } from "./r3f-video-recorder";
+import { MyScene } from "./my-scene";
+
+const App = observer(() => {
+  const [videoCanvas, setVideoCanvas] = useState<VideoCanvasManager | null>(
+    null
+  );
+
+  return (
+    <main className="h-screen">
+      {videoCanvas && (
+        <div className="fixed top-4 right-4 flex gap-3">
+          {!videoCanvas.recording && (
+            <Button
+              onClick={() => {
+                videoCanvas
+                  .record({
+                    mode: "realtime",
+                    size: "2x",
+                  })
+                  .then((blob) => {
+                    FileSaver.saveAs(blob, "video.mp4");
+                  });
+              }}
+            >
+              Record
+            </Button>
+          )}
+          {videoCanvas.recording && (
+            <>
+              <Button
+                onClick={() => {
+                  videoCanvas.recording.cancel();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  videoCanvas.recording.stop();
+                }}
+              >
+                Stop
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+      <VideoCanvas
+        fps={60}
+        camera={{ position: [-15, 0, 10], fov: 25 }}
+        onCreated={({ videoCanvas }) => {
+          setVideoCanvas(videoCanvas);
+        }}
+      >
+        <MyScene />
+      </VideoCanvas>
+    </main>
+  );
+});
+```
+
+```tsx
 import { VideoCanvas, useVideoCanvas } from "r3f-video-recorder";
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
