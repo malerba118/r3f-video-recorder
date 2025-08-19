@@ -8,6 +8,7 @@ import {
   QUALITY_HIGH,
   OutputFormat,
   VideoCodec,
+  Quality,
 } from "mediabunny";
 import {
   createContext,
@@ -31,8 +32,8 @@ import {
 import { Vector2, WebGLRenderer } from "three";
 import { action, makeObservable, observable, runInAction } from "mobx";
 
-type Seconds = number;
-type ScalePreset = "1x" | "2x" | "3x" | "4x";
+export type Seconds = number;
+export type ScalePreset = "1x" | "2x" | "3x" | "4x";
 
 const EPSILON = 1e-7;
 
@@ -135,7 +136,7 @@ const VideoCanvasInner = forwardRef<
     gl.setSize(even(size.width), even(size.height), false);
     gl.render(scene, camera);
     if (
-      videoCanvas.recording instanceof DeterminsticVideoRecording &&
+      videoCanvas.recording instanceof FrameAccurateVideoRecording &&
       videoCanvas.recording.status === VideoRecordingStatus.ReadyForFrames &&
       (videoCanvas.recording.lastCapturedFrame ?? -1) < videoCanvas.frame &&
       !videoCanvas.recording.isCapturingFrame
@@ -160,21 +161,24 @@ const VideoCanvasInner = forwardRef<
   );
 });
 
-type DeterministicRecordParams = {
-  mode: "deterministic";
-  duration: Seconds;
-  format?: OutputFormat;
-  codec?: VideoCodec;
-  scale?: ScalePreset;
-};
-
-type RealtimeRecordParams = {
-  mode: "realtime";
+interface BaseRecordParams {
+  mode: "realtime" | "frame-accurate";
   duration?: Seconds;
   format?: OutputFormat;
   codec?: VideoCodec;
   scale?: ScalePreset;
-};
+  quality?: Quality;
+}
+
+interface FrameAccurateRecordParams extends BaseRecordParams {
+  mode: "frame-accurate";
+  duration: Seconds;
+}
+
+interface RealtimeRecordParams extends BaseRecordParams {
+  mode: "realtime";
+  duration?: Seconds;
+}
 
 export class VideoCanvasManager {
   gl: WebGLRenderer;
@@ -259,19 +263,21 @@ export class VideoCanvasManager {
     duration,
     format = new Mp4OutputFormat(),
     codec = "avc",
-    scale = "1x",
-  }: DeterministicRecordParams | RealtimeRecordParams) {
+    scale = "2x",
+    quality = QUALITY_HIGH,
+  }: FrameAccurateRecordParams | RealtimeRecordParams) {
     return new Promise<Blob>(async (resolve, reject) => {
       const initialPixelRatio = this.gl.getPixelRatio();
-      this.gl.setPixelRatio(initialPixelRatio * SCALES[scale]);
-      if (mode === "deterministic") {
+      this.gl.setPixelRatio(1 * SCALES[scale]);
+      if (mode === "frame-accurate") {
         this.pause();
-        this.recording = new DeterminsticVideoRecording({
+        this.recording = new FrameAccurateVideoRecording({
           canvas: this.gl.domElement,
           fps: this.fps,
           duration,
           format,
           codec,
+          quality,
           onDone: (blob) => {
             this.pause();
             resolve(blob);
@@ -293,6 +299,7 @@ export class VideoCanvasManager {
           duration,
           format,
           codec,
+          quality,
           onDone: (blob) => {
             this.pause();
             resolve(blob);
@@ -323,6 +330,7 @@ type VideoRecordingParams = {
   fps: number;
   format: OutputFormat;
   codec: VideoCodec;
+  quality: Quality;
   onDone: (data: Blob) => void;
   onError: (err: unknown) => void;
 };
@@ -334,11 +342,11 @@ abstract class VideoRecording {
   lastCapturedFrame: number | null = null;
   format: OutputFormat;
   codec: VideoCodec;
+  quality: Quality;
   output: Output;
   canvasSource: CanvasSource;
   onDone: (data: Blob) => void;
   onError: (err: unknown) => void;
-  frameCount: number = 0;
   status: VideoRecordingStatus = VideoRecordingStatus.Initializing;
   isCapturingFrame: boolean = false;
 
@@ -348,6 +356,7 @@ abstract class VideoRecording {
     this.fps = params.fps;
     this.format = params.format;
     this.codec = params.codec;
+    this.quality = params.quality;
     this.onDone = params.onDone;
     this.onError = params.onError;
 
@@ -357,7 +366,7 @@ abstract class VideoRecording {
     });
     this.canvasSource = new CanvasSource(this.canvas, {
       codec: params.codec,
-      bitrate: QUALITY_HIGH,
+      bitrate: params.quality,
     });
     this.output.addVideoTrack(this.canvasSource, { frameRate: this.fps });
     this.output
@@ -366,11 +375,10 @@ abstract class VideoRecording {
         this.setStatus(VideoRecordingStatus.ReadyForFrames);
       })
       .catch((e) => {
-        this._cancel(e || new Error("Unable to initialize recording"));
+        this.canelWithReason(e || new Error("Unable to initialize recording"));
       });
 
     makeObservable(this, {
-      frameCount: observable.ref,
       status: observable.ref,
       // @ts-ignore
       setStatus: action,
@@ -402,11 +410,11 @@ abstract class VideoRecording {
       });
       this.onDone(blob);
     } catch (err) {
-      this._cancel(err);
+      this.canelWithReason(err);
     }
   };
 
-  protected _cancel = async (
+  protected canelWithReason = async (
     err: unknown = new Error("Recording canceled")
   ) => {
     try {
@@ -420,18 +428,18 @@ abstract class VideoRecording {
   };
 
   cancel = async () => {
-    this._cancel(new Error("Recording canceled"));
+    return this.canelWithReason(new Error("Recording canceled"));
   };
 }
 
-interface DeterminsticVideoRecordingParams extends VideoRecordingParams {
+interface FrameAccurateVideoRecordingParams extends VideoRecordingParams {
   duration: Seconds;
 }
 
-class DeterminsticVideoRecording extends VideoRecording {
+class FrameAccurateVideoRecording extends VideoRecording {
   duration: Seconds;
 
-  constructor(params: DeterminsticVideoRecordingParams) {
+  constructor(params: FrameAccurateVideoRecordingParams) {
     super(params);
     this.duration = params.duration;
   }
@@ -451,7 +459,7 @@ class DeterminsticVideoRecording extends VideoRecording {
         await this.stop();
       }
     } catch (err) {
-      await this._cancel(err);
+      await this.canelWithReason(err);
     } finally {
       this.isCapturingFrame = false;
     }
@@ -488,7 +496,7 @@ class RealtimeVideoRecording extends VideoRecording {
         await this.stop();
       }
     } catch (err) {
-      await this._cancel(err);
+      await this.canelWithReason(err);
     } finally {
       this.isCapturingFrame = false;
     }

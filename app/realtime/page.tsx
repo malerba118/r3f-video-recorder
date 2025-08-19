@@ -5,10 +5,11 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import {
+  ScalePreset,
   useVideoCanvas,
   VideoCanvas,
   VideoCanvasManager,
-} from "../../lib/video-timeline";
+} from "../../r3f-video-canvas";
 import { Button } from "../../components/ui/button";
 import { observer } from "mobx-react";
 import { Slider } from "../../components/ui/slider";
@@ -17,7 +18,7 @@ import FileSaver from "file-saver";
 import { toast } from "sonner";
 import Link from "next/link";
 import { CarouselScene } from "../scenes/carousel";
-import { FpsSelector } from "../controls";
+import { FpsSelector, ScaleSelector } from "../controls";
 
 function RotatingCube() {
   const canvas = useVideoCanvas();
@@ -39,70 +40,72 @@ function RotatingCube() {
 }
 
 const Page = observer(() => {
+  const [scale, setScale] = useState<ScalePreset>("2x");
   const [videoCanvas, setVideoCanvas] = useState<VideoCanvasManager | null>(
     null
   );
 
   return (
-    <div className="flex flex-col h-[100dvh]">
-      <div className="p-4 flex gap-4">
-        <Link href="/realtime" className="text-gray-950">
-          Realtime
-        </Link>
-        <Link href="/deterministic" className="text-gray-400">
-          Deterministic
-        </Link>
-      </div>
-      <div className="flex-1 py-24 px-4">
-        <div className="flex flex-col gap-4  w-full md:w-[50vw] mx-auto">
-          <div className="h-4" />
-          <div className="h-[50vh] w-full bg-black">
-            <VideoCanvas
-              fps={60}
-              onCreated={({ videoCanvas }) => {
-                setVideoCanvas(videoCanvas);
-              }}
-              camera={{ position: [0, 0, 100], fov: 15 }}
-            >
-              <CarouselScene />
-            </VideoCanvas>
+    <div className="py-24 px-4">
+      <div className="flex flex-col gap-4  w-full lg:w-[50vw] mx-auto">
+        <div className="flex items-center">
+          <div className="flex gap-4">
+            <Link href="/realtime" className="text-gray-950">
+              Realtime
+            </Link>
+            <Link href="/deterministic" className="text-gray-500">
+              Deterministic
+            </Link>
           </div>
-          {videoCanvas && (
-            <>
-              <div className="flex items-center gap-3">
-                <FpsSelector
-                  value={videoCanvas.fps}
-                  onValueChange={(fps) => videoCanvas.setFps(fps)}
-                />
-                <div className="flex-1" />
-                {videoCanvas.recording ? (
-                  <>
-                    <Button onClick={() => videoCanvas.recording?.cancel()}>
-                      Cancel
-                    </Button>
-                    <Button onClick={() => videoCanvas.recording?.stop()}>
-                      Stop
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    onClick={() => {
-                      videoCanvas
-                        ?.record({
-                          mode: "realtime",
-                          scale: "2x",
-                        })
-                        .then((blob) => FileSaver.saveAs(blob, "video.mp4"))
-                        .catch((err) => toast.error(err?.message));
-                    }}
-                  >
-                    Record
-                  </Button>
-                )}
-              </div>
-            </>
-          )}
+          <div className="flex-1" />
         </div>
+        <div className="h-[55vh] w-full bg-gray-50">
+          <VideoCanvas
+            fps={60}
+            onCreated={({ videoCanvas }) => {
+              setVideoCanvas(videoCanvas);
+            }}
+            camera={{ position: [0, 0, 100], fov: 15 }}
+          >
+            <CarouselScene />
+          </VideoCanvas>
+        </div>
+        {videoCanvas && (
+          <>
+            <div className="flex items-center gap-3">
+              <FpsSelector
+                value={videoCanvas.fps}
+                onValueChange={(fps) => videoCanvas.setFps(fps)}
+              />
+              <ScaleSelector value={scale} onValueChange={setScale} />
+              <div className="flex-1" />
+              {videoCanvas.recording ? (
+                <>
+                  <Button onClick={() => videoCanvas.recording?.cancel()}>
+                    Cancel
+                  </Button>
+                  <Button onClick={() => videoCanvas.recording?.stop()}>
+                    Stop
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  onClick={() => {
+                    videoCanvas
+                      ?.record({
+                        mode: "realtime",
+                        scale,
+                      })
+                      .then((blob) => FileSaver.saveAs(blob, "video.mp4"))
+                      .catch((err) => toast.error(err?.message));
+                  }}
+                >
+                  Record
+                </Button>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

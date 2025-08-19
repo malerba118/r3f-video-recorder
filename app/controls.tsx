@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ScalePreset } from "@/r3f-video-canvas";
 
 type FpsSelectorProps = {
   value: number;
@@ -70,6 +71,40 @@ export function DurationSelector({
         {options.map((opt) => (
           <SelectItem key={opt} value={String(opt)}>
             {opt}s
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+type ScaleSelectorProps = {
+  value: ScalePreset;
+  onValueChange: (scale: ScalePreset) => void;
+  options?: ScalePreset[];
+  disabled?: boolean;
+  className?: string;
+};
+
+export function ScaleSelector({
+  value,
+  onValueChange,
+  options = ["1x", "2x", "3x", "4x"],
+  disabled,
+  className,
+}: ScaleSelectorProps) {
+  return (
+    <Select
+      value={value}
+      onValueChange={(v) => onValueChange(v as ScalePreset)}
+    >
+      <SelectTrigger className={className} disabled={disabled}>
+        <SelectValue placeholder="Duration" />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((opt) => (
+          <SelectItem key={opt} value={String(opt)}>
+            {opt}
           </SelectItem>
         ))}
       </SelectContent>
