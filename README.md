@@ -1,6 +1,6 @@
 # r3f-video-recorder
 
-This is a video recording framework built on [@react-three/fiber](https://r3f.docs.pmnd.rs/getting-started/introduction) and [mediabunny](https://mediabunny.dev/) which supports both realtime canvas capture as well as frame-accurate video rendering.
+This is a video recording framework built on [@react-three/fiber](https://r3f.docs.pmnd.rs/getting-started/introduction) and [mediabunny](https://mediabunny.dev/). It supports both realtime canvas capture as well as frame-accurate video rendering.
 
 Rendering videos reliably across all browsers is quite difficult but this library offers a nice set of guarantees including:
 
