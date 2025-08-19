@@ -9,11 +9,7 @@ Rendering videos reliably across all browsers is quite difficult but this librar
 - Fast rendering times while in `frame-accurate` recording mode (eg 10s to render 60s video).
 - Adjustable `fps`, `size`, `quality`, `format`, `codec`.
 
-
-
 https://github.com/user-attachments/assets/42e54545-9fba-42c0-acba-88b8d6c2f9cc
-
-
 
 ### Installation
 
@@ -25,15 +21,16 @@ You'll also need to install peers:
 npm install @react-three/fiber mobx mobx-react mediabunny
 ```
 
-### Quick Start
+### Basic Usage
 
 ```tsx
 import { QUALITY_HIGH } from "mediabunny";
 import FileSaver from "file-saver";
+import { observer } from "mobx-react";
 import { VideoCanvas, VideoCanvasManager } from "./r3f-video-recorder";
 import { MyScene } from "./my-scene";
 
-export default function Page() {
+const App = observer(() => {
   const [videoCanvas, setVideoCanvas] = useState<VideoCanvasManager | null>(
     null
   );
@@ -68,7 +65,7 @@ export default function Page() {
       </VideoCanvas>
     </main>
   );
-}
+});
 ```
 
 ## Realtime Rendering
