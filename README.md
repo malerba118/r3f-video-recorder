@@ -4,7 +4,7 @@ This is a video recording framework built on [@react-three/fiber](https://r3f.do
 
 Rendering videos reliably across all browsers is quite difficult but this library offers a nice set of guarantees including:
 
-- Render to `mp4/h264` in all browsers.
+- Render to `mp4/h264` in all browsers (even firefox, none of that webm bullshit).
 - A frame-aligned clock so your video preview can appear consistent with your rendered export.
 - Fast rendering times while in `frame-accurate` recording mode (eg 10s to render 60s video).
 - Adjustable `fps`, `size`, `quality`, `format`, `codec`.
