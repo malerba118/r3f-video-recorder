@@ -9,12 +9,22 @@ Rendering videos reliably across all browsers is quite difficult but this librar
 - Fast rendering times while in `frame-accurate` recording mode (eg 10s to render 60s video).
 - Adjustable `fps`, `size`, `quality`, `format`, `codec`
 
-### Basic Usage
+### Installation
+
+I'm lazy and don't feel like turning this into an official npm package. I also know i will suck at keeping it up to date so i'm going with shadcn-stlye installation on this one and you're going to have to copy/pasta the contents of [r3f-video-recorder.tsx](/r3f-video-recorder.tsx) into your project.
+
+You'll also need to install peers:
+
+```bash
+npm install @react-three/fiber mobx mobx-react mediabunny
+```
+
+### Quick Start
 
 ```tsx
-import { VideoCanvas, VideoCanvasManager } from "./r3f-video-recorder";
 import { HIGH_QUALITY } from "mediabunny";
 import FileSaver from "file-saver";
+import { VideoCanvas, VideoCanvasManager } from "./r3f-video-recorder";
 import { MyScene } from "./my-scene";
 
 export default function Page() {
@@ -55,14 +65,76 @@ export default function Page() {
 }
 ```
 
-### Installation
+### Realtime Rendering
 
-I'm lazy and don't feel like turning this into an official npm package. I also know i will suck at keeping it up to date so i'm going with shadcn-stlye installation on this one and you're going to have to copy/pasta the contents of [r3f-video-recorder.tsx](/r3f-video-recorder.tsx) into your project.
+`realtime` rendering mode will capture frames from the canvas in real time. This means if you want a two minute video, you'll have to sit there recording for two minutes. This is a good option when you want to capture a user interacting with a scene.
 
-You'll also need to install peers:
+While it's generally easier to set up, it's also inherently less robust than `frame-accurate` rendering since it's subject to lost frames. Contextual factors such as user machine specs, battery level, concurrent cpu/memory usage, navigation away from tab during recording, can all lead to lost frames and affect the integrity of the rendered video.
 
-```bash
-npm install @react-three/fiber mobx mobx-react mediabunny
+```tsx
+import { HIGH_QUALITY } from "mediabunny";
+import FileSaver from "file-saver";
+import { observer } from "mobx-react";
+import { VideoCanvas, VideoCanvasManager } from "./r3f-video-recorder";
+import { MyScene } from "./my-scene";
+
+const App = observer(() => {
+  const [videoCanvas, setVideoCanvas] = useState<VideoCanvasManager | null>(
+    null
+  );
+
+  return (
+    <main className="h-screen">
+      {videoCanvas && (
+        <div className="fixed top-4 right-4 flex gap-3">
+          {!videoCanvas.recording && (
+            <Button
+              onClick={() => {
+                videoCanvas
+                  .record({
+                    mode: "realtime",
+                    size: "2x",
+                  })
+                  .then((blob) => {
+                    FileSaver.saveAs(blob, "video.mp4");
+                  });
+              }}
+            >
+              Record
+            </Button>
+          )}
+          {videoCanvas.recording && (
+            <>
+              <Button
+                onClick={() => {
+                  videoCanvas.recording.cancel();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  videoCanvas.recording.stop();
+                }}
+              >
+                Stop
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+      <VideoCanvas
+        fps={60}
+        camera={{ position: [-15, 0, 10], fov: 25 }}
+        onCreated={({ videoCanvas }) => {
+          setVideoCanvas(videoCanvas);
+        }}
+      >
+        <MyScene />
+      </VideoCanvas>
+    </main>
+  );
+});
 ```
 
 If you have not set up R3F, see the R3F docs first.
