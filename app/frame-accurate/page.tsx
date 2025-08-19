@@ -68,8 +68,8 @@ const Page = observer(() => {
             <Link href="/realtime" className="text-gray-500">
               Realtime
             </Link>
-            <Link href="/deterministic" className="text-gray-950">
-              FrameAccurate
+            <Link href="/frame-accurate" className="text-gray-950">
+              Frame-Accurate
             </Link>
           </div>
           <div className="flex-1" />
