@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { CarouselScene } from "../scenes/carousel";
 import { FpsSelector, SizeSelector } from "../controls";
+// @ts-ignore
+import FPSStats from "react-fps-stats";
 
 function RotatingCube() {
   const canvas = useVideoCanvas();
@@ -47,6 +49,7 @@ const Page = observer(() => {
 
   return (
     <div className="py-24 px-4">
+      <FPSStats />
       <div className="flex flex-col gap-4  w-full lg:w-[50vw] mx-auto">
         <div className="flex items-center">
           <div className="flex gap-4">

@@ -18,6 +18,8 @@ import { formatTime } from "@/components/utils";
 import Link from "next/link";
 import { DurationSelector, FpsSelector, SizeSelector } from "../controls";
 import { toast } from "sonner";
+// @ts-ignore
+import FPSStats from "react-fps-stats";
 
 function RotatingCube() {
   const canvas = useVideoCanvas();
@@ -62,6 +64,7 @@ const Page = observer(() => {
 
   return (
     <div className="py-24 px-4">
+      <FPSStats />
       <div className="flex flex-col gap-4 w-full lg:w-[50vw] mx-auto">
         <div className="flex items-center">
           <div className="flex gap-4">

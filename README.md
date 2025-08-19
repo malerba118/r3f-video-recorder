@@ -222,10 +222,18 @@ Since many existing r3f scenes are heavily dependent on `clock.elapsedTime`, you
 
 ```tsx
 const ClockSync = () => {
+  const clock = useThree((state) => state.clock);
   const videoCanvas = useVideoCanvas();
+
+  useEffect(() => {
+    clock.stop();
+  }, [clock]);
+
   useFrame(({ clock }) => {
     clock.elapsedTime = videoCanvas.time;
   });
+
+  return null;
 };
 ```
 
