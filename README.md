@@ -55,11 +55,9 @@ export default function Page() {
 }
 ```
 
-## Getting Started
-
 ### Installation
 
-I'm lazy and don't feel like turning this into an official npm package. I also know i will suck at keeping it up to date so i'm going with shadcn-stlye installation on this one and you're going to have to copy/pasta the contents of [r3f-video-recorder.tsx] into your project.
+I'm lazy and don't feel like turning this into an official npm package. I also know i will suck at keeping it up to date so i'm going with shadcn-stlye installation on this one and you're going to have to copy/pasta the contents of [r3f-video-recorder.tsx](/r3f-video-recorder.tsx) into your project.
 
 You'll also need to install peers:
 
