@@ -9,7 +9,7 @@ import {
   useVideoCanvas,
   VideoCanvas,
   VideoCanvasManager,
-} from "../../r3f-video-canvas";
+} from "../../r3f-video-recorder";
 import { Button } from "../../components/ui/button";
 import { observer } from "mobx-react";
 import { Slider } from "../../components/ui/slider";

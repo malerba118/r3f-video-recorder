@@ -8,7 +8,7 @@ import {
   useVideoCanvas,
   VideoCanvas,
   VideoCanvasManager,
-} from "../../r3f-video-canvas";
+} from "../../r3f-video-recorder";
 import { Button } from "../../components/ui/button";
 import { observer } from "mobx-react";
 import { Slider } from "../../components/ui/slider";
@@ -26,8 +26,8 @@ function RotatingCube() {
   useFrame(() => {
     if (!meshRef.current) return;
     // Rotate the cube based on videoCanvas.time
-    meshRef.current.rotation.x = canvas.time;
-    meshRef.current.rotation.y = canvas.time * 0.7;
+    meshRef.current.rotation.x = 10 + canvas.time;
+    meshRef.current.rotation.y = 10 + canvas.time * 0.7;
   });
 
   return (

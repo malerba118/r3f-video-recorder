@@ -336,18 +336,18 @@ type VideoRecordingParams = {
 };
 
 abstract class VideoRecording {
-  canvas: HTMLCanvasElement;
+  protected canvas: HTMLCanvasElement;
+  protected output: Output;
+  protected canvasSource: CanvasSource;
+  protected onDone: (data: Blob) => void;
+  protected onError: (err: unknown) => void;
   fps: number;
-  firstFrame: number | null = null;
-  lastCapturedFrame: number | null = null;
   format: OutputFormat;
   codec: VideoCodec;
   quality: Quality;
-  output: Output;
-  canvasSource: CanvasSource;
-  onDone: (data: Blob) => void;
-  onError: (err: unknown) => void;
   status: VideoRecordingStatus = VideoRecordingStatus.Initializing;
+  firstFrame: number | null = null;
+  lastCapturedFrame: number | null = null;
   isCapturingFrame: boolean = false;
 
   constructor(params: VideoRecordingParams) {

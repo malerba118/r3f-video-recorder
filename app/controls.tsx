@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ScalePreset } from "@/r3f-video-canvas";
+import { ScalePreset } from "@/r3f-video-recorder";
 
 type FpsSelectorProps = {
   value: number;
