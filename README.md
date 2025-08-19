@@ -22,7 +22,7 @@ npm install @react-three/fiber mobx mobx-react mediabunny
 ### Quick Start
 
 ```tsx
-import { HIGH_QUALITY } from "mediabunny";
+import { QUALITY_HIGH } from "mediabunny";
 import FileSaver from "file-saver";
 import { VideoCanvas, VideoCanvasManager } from "./r3f-video-recorder";
 import { MyScene } from "./my-scene";
@@ -42,7 +42,7 @@ export default function Page() {
               mode: "realtime",
               duration: 30,
               scale: "2x",
-              quality: HIGH_QUALITY,
+              quality: QUALITY_HIGH,
             })
             .then((blob) => {
               FileSaver.saveAs(blob, "video.mp4");
@@ -72,7 +72,7 @@ export default function Page() {
 While it's generally easier to set up, it's also inherently less robust than `frame-accurate` rendering since it's subject to lost frames. Contextual factors such as user machine specs, battery level, concurrent cpu/memory usage, navigation away from tab during recording, can all lead to lost frames and affect the integrity of the rendered video.
 
 ```tsx
-import { HIGH_QUALITY } from "mediabunny";
+import { QUALITY_HIGH } from "mediabunny";
 import FileSaver from "file-saver";
 import { observer } from "mobx-react";
 import { VideoCanvas, VideoCanvasManager } from "./r3f-video-recorder";
