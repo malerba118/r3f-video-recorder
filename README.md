@@ -6,14 +6,14 @@ Rendering videos reliably across all browsers is quite difficult but this librar
 
 - Render to `mp4/h264` in all browsers (even firefox, none of that webm bullshit).
 - A frame-aligned clock so your video preview can appear consistent with your rendered export.
-- Fast rendering times while in `frame-accurate` recording mode (eg 10s to render 60s video).
+- Fast rendering times while in `frame-accurate` recording mode (eg 15s to render 60s video).
 - Adjustable `fps`, `size`, `quality`, `format`, `codec`.
 
 https://github.com/user-attachments/assets/42e54545-9fba-42c0-acba-88b8d6c2f9cc
 
 ### Installation
 
-I'm going with shadcn-stlye installation on this one so you're going to have to copy/pasta the contents of [r3f-video-recorder.tsx](/r3f-video-recorder.tsx) into your project. (I'm lazy and don't feel like turning this into an official npm package. I also know i will suck at keeping an npm package up-to-date so i think this is the best way atm).
+I'm going with shadcn-style installation on this one so you're going to have to copy/pasta the contents of [r3f-video-recorder.tsx](/r3f-video-recorder.tsx) into your project. (I'm lazy and don't feel like turning this into an official npm package. I also know i will suck at keeping an npm package up-to-date so i think this is the best way atm).
 
 You'll also need to install peers:
 
@@ -44,7 +44,7 @@ const App = observer(() => {
             ?.record({
               mode: "realtime",
               duration: 30,
-              scale: "2x",
+              size: "2x",
               quality: QUALITY_HIGH,
             })
             .then((blob) => {
