@@ -73,7 +73,7 @@ const App = observer(() => {
 
 `realtime` rendering mode will capture frames from the canvas in real time. This means if you want a two minute video, you'll have to sit there recording for two minutes. This is a good option when you want to capture a user interacting with a scene.
 
-While it's generally easier to set up, it's also inherently less robust than `frame-accurate` rendering since it's subject to lost frames. Contextual factors such as user machine specs, battery level, concurrent cpu/memory usage, navigation away from tab during recording, can all lead to lost frames and affect the integrity of the rendered video.
+While it's generally easier to set up, it's also inherently less robust than `frame-accurate` rendering since it's subject to lost frames. Contextual factors such as user machine specs, battery level, concurrent cpu/memory consumption, navigation away from tab during recording, can all lead to lost frames and affect the integrity of the rendered video.
 
 ```tsx
 import { QUALITY_HIGH } from "mediabunny";
