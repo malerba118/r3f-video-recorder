@@ -284,7 +284,7 @@ Properties (all reactive via mobx):
 - `time: number` frame-aligned clock time
 - `frame: number` current video frame
 - `isPlaying: boolean` current playback state
-- `recording: { stop(): Promise<void>; cancel(): Promise<void>; status: "initializing" | "ready-for-frames" | "finalizing" | "canceling" } | null`
+- `recording: { stop(): Promise<void>; cancel(): Promise<void>; } | null`
 
 Methods:
 
@@ -325,4 +325,4 @@ record({
 
 - `SizePreset` — "1x" | "2x" | "3x" | "4x"
 - `Seconds` — alias of `number`
-- `OutputFormat`, `VideoCodec`, `Quality`, `QUALITY_HIGH` — from `mediabunny`
+- `OutputFormat`, `VideoCodec`, `Quality` — from `mediabunny`
