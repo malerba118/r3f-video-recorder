@@ -146,7 +146,7 @@ const App = observer(() => {
 
 This is nice because your videos will always be rendered exactly the same regardless of contextual hiccups like low battery power or the user deciding to visit another tab during the recording process.
 
-However, it is imperative when using this mode that your video frames are rendered as a pure function of the current `videoClock.time`. If your frames depend on external variables such as the `THREE.clock.elapsedTime`, or `Math.random()` then there's no guarantee that frame 37 will be rendered identically across two different exports.
+However, it is imperative when using this mode that your video frames are rendered as a pure function of the current `videoCanvas.time`. If your frames depend on external variables such as r3f's `clock.elapsedTime` or `Math.random()` then there's no guarantee that each frame will be rendered identically across two different exports and furthermore, operations like seeking a timeline won't behave as you'd expect.
 
 ```tsx
 import { useRef, useState } from "react";
