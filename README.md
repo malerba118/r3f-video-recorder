@@ -6,14 +6,15 @@ Rendering videos reliably across all browsers is quite difficult but this librar
 
 - Render to `mp4/h264` in all browsers (even firefox, none of that webm bullshit).
 - A frame-aligned clock so your video preview can appear consistent with your rendered export.
-- Fast rendering times while in `frame-accurate` recording mode (eg 10s to render 60s video).
+- Fast rendering times while in `frame-accurate` recording mode (eg 15s to render 60s video).
 - Adjustable `fps`, `size`, `quality`, `format`, `codec`.
+- Forces renderer dimensions to be even number of pixels since video encoders often [choke on odd numbers.](https://community.adobe.com/t5/after-effects-discussions/media-encoder-is-changing-my-dimension-by-a-pixel/m-p/10100401).
 
 https://github.com/user-attachments/assets/42e54545-9fba-42c0-acba-88b8d6c2f9cc
 
 ### Installation
 
-I'm going with shadcn-stlye installation on this one so you're going to have to copy/pasta the contents of [r3f-video-recorder.tsx](/r3f-video-recorder.tsx) into your project. (I'm lazy and don't feel like turning this into an official npm package. I also know i will suck at keeping an npm package up-to-date so i think this is the best way atm).
+I'm going with shadcn-style installation on this one so you're going to have to copy/pasta the contents of [r3f-video-recorder.tsx](/r3f-video-recorder.tsx) into your project. (I'm lazy and don't feel like turning this into an official npm package. I also know i will suck at keeping an npm package up-to-date so i think this is the best way atm).
 
 You'll also need to install peers:
 
@@ -44,7 +45,7 @@ const App = observer(() => {
             ?.record({
               mode: "realtime",
               duration: 30,
-              scale: "2x",
+              size: "2x",
               quality: QUALITY_HIGH,
             })
             .then((blob) => {
@@ -72,7 +73,7 @@ const App = observer(() => {
 
 `realtime` rendering mode will capture frames from the canvas in real time. This means if you want a two minute video, you'll have to sit there recording for two minutes. This is a good option when you want to capture a user interacting with a scene.
 
-While it's generally easier to set up, it's also inherently less robust than `frame-accurate` rendering since it's subject to lost frames. Contextual factors such as user machine specs, battery level, concurrent cpu/memory usage, navigation away from tab during recording, can all lead to lost frames and affect the integrity of the rendered video.
+While it's generally easier to set up, it's also inherently less robust than `frame-accurate` rendering since it's subject to lost frames. Contextual factors such as user machine specs, battery level, concurrent cpu/memory consumption, navigation away from tab during recording, can all lead to lost frames and affect the integrity of the rendered video.
 
 ```tsx
 import { QUALITY_HIGH } from "mediabunny";
@@ -146,7 +147,7 @@ const App = observer(() => {
 
 This is nice because your videos will always be rendered exactly the same regardless of contextual hiccups like low battery power or the user deciding to visit another tab during the recording process.
 
-However, it is imperative when using this mode that your video frames are rendered as a pure function of the current `videoClock.time`. If your frames depend on external variables such as the `THREE.clock.elapsedTime`, or `Math.random()` then there's no guarantee that frame 37 will be rendered identically across two different exports.
+However, it is imperative when using this mode that your video frames are rendered as a pure function of the current `videoCanvas.time`. If your frames depend on external variables such as r3f's `clock.elapsedTime` or `Math.random()` then there's no guarantee that each frame will be rendered identically across two different exports and furthermore, operations like seeking a timeline won't behave as you'd expect.
 
 ```tsx
 import { useRef, useState } from "react";
@@ -283,7 +284,7 @@ Properties (all reactive via mobx):
 - `time: number` frame-aligned clock time
 - `frame: number` current video frame
 - `isPlaying: boolean` current playback state
-- `recording: { stop(): Promise<void>; cancel(): Promise<void>; status: "initializing" | "ready-for-frames" | "finalizing" | "canceling" } | null`
+- `recording: { stop(): Promise<void>; cancel(): Promise<void>; } | null`
 
 Methods:
 
@@ -324,4 +325,4 @@ record({
 
 - `SizePreset` — "1x" | "2x" | "3x" | "4x"
 - `Seconds` — alias of `number`
-- `OutputFormat`, `VideoCodec`, `Quality`, `QUALITY_HIGH` — from `mediabunny`
+- `OutputFormat`, `VideoCodec`, `Quality` — from `mediabunny`
