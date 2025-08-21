@@ -8,6 +8,7 @@ Rendering videos reliably across all browsers is quite difficult but this librar
 - A frame-aligned clock so your video preview can appear consistent with your rendered export.
 - Fast rendering times while in `frame-accurate` recording mode (eg 15s to render 60s video).
 - Adjustable `fps`, `size`, `quality`, `format`, `codec`.
+- Forces renderer dimensions to be even number of pixels since video encoders often [choke on odd numbers.](https://community.adobe.com/t5/after-effects-discussions/media-encoder-is-changing-my-dimension-by-a-pixel/m-p/10100401).
 
 https://github.com/user-attachments/assets/42e54545-9fba-42c0-acba-88b8d6c2f9cc
 
